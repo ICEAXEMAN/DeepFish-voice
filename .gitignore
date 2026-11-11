@@ -1,0 +1,37 @@
+# 各人自己下载的东西
+sdk/*
+!sdk/下载SDK.md
+model/*
+!model/获取模型.md
+
+# 本机编译和运行产物
+src/**/bin/
+src/**/obj/
+tray/**/bin/
+tray/**/obj/
+cache/
+check/
+settings.json
+api.json
+errors.log
+*.old
+*.tmp
+
+# 本机个人状态
+affection.json
+memory.json
+memory-archive.json
+memory.md
+memory-log.jsonl
+tray/config.json
+tray/ui.json
+hooks/**/hook.log
+hooks/**/sessions.json
+.codex/
+.cursor/
+.claude/
+
+# 本机停用项和检查记录
+_停用启动项/
+保存清单_*.txt
+插件部署检查.txt

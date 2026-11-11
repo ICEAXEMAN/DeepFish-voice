@@ -1,0 +1,8 @@
+- insert:
+    - id: mcp-dafeiyu
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: dafeiyu
+        transport: stdio
+        command: '<插件完整路径>\bin\FishPet.Mcp.exe'
+        args: []

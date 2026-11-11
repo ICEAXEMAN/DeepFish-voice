@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../FishPet/Behavior.cs" Link="Behavior.cs" />
+    <Compile Include="../FishPet/Body.cs" Link="Body.cs" />
+    <Compile Include="../FishPet/Dance.cs" Link="Dance.cs" />
+    <Compile Include="../FishPet/Tempo.cs" Link="Tempo.cs" />
+    <Compile Include="../FishPet/Updates.cs" Link="Updates.cs" />
+    <Compile Include="../FishPet/Mutter.cs" Link="Mutter.cs" />
+    <Compile Include="../FishPet/Model.cs" Link="Model.cs" />
+    <Compile Include="../FishPet/Events.cs" Link="Events.cs" />
+    <Compile Include="../FishPet/Conditions.cs" Link="Conditions.cs" />
+    <Compile Include="../FishPet/Affection.cs" Link="Affection.cs" />
+    <Compile Include="../FishPet/Memory.cs" Link="Memory.cs" />
+    <Compile Include="../FishPet/MemoryView.cs" Link="MemoryView.cs" />
+    <Compile Include="../FishPet/Alarms.cs" Link="Alarms.cs" />
+  </ItemGroup>
+</Project>

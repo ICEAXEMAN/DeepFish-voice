@@ -1,0 +1,434 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{8FB16F13-B622-377F-B28B-351B50D60C12}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>Framework</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Framework.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Framework</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Framework.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Framework</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Framework.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Framework</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Framework.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Framework</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Core/include" /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;D3DCompile=CachedD3DCompile;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;D3DCompile=CachedD3DCompile;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Core/include" /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;D3DCompile=CachedD3DCompile;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;D3DCompile=CachedD3DCompile;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Core/include" /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;D3DCompile=CachedD3DCompile;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;D3DCompile=CachedD3DCompile;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Core/include" /utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;D3DCompile=CachedD3DCompile;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;D3DCompile=CachedD3DCompile;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\..\Core\include;C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Framework/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/14623/大肥鱼插件/renderer -BC:/Users/14623/大肥鱼插件/renderer/build --check-stamp-file C:/Users/14623/大肥鱼插件/renderer/build/Framework/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Framework/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/14623/大肥鱼插件/renderer -BC:/Users/14623/大肥鱼插件/renderer/build --check-stamp-file C:/Users/14623/大肥鱼插件/renderer/build/Framework/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Framework/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/14623/大肥鱼插件/renderer -BC:/Users/14623/大肥鱼插件/renderer/build --check-stamp-file C:/Users/14623/大肥鱼插件/renderer/build/Framework/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/14623/大肥鱼插件/sdk/CubismSdkForNative-5-r.5/Framework/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Users/14623/大肥鱼插件/renderer -BC:/Users/14623/大肥鱼插件/renderer/build --check-stamp-file C:/Users/14623/大肥鱼插件/renderer/build/Framework/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\14623\大肥鱼插件\renderer\build\Framework\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismCdiJson.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismCdiJson.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismDefaultParameterId.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismDefaultParameterId.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismFramework.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismFramework.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismFrameworkConfig.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismModelSettingJson.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismModelSettingJson.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\CubismJsonHolder.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\ICubismAllocator.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\ICubismModelSetting.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Live2DCubismCore.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismBreath.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismBreath.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismEyeBlink.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismEyeBlink.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismLook.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismLook.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismPose.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Effect\CubismPose.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Id\CubismId.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Id\CubismId.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Id\CubismIdManager.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Id\CubismIdManager.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismMath.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismMath.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismMatrix44.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismMatrix44.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismModelMatrix.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismModelMatrix.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismTargetPoint.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismTargetPoint.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismVector2.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismVector2.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismViewMatrix.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Math\CubismViewMatrix.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismMoc.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismMoc.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModel.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModel.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModelMultiplyAndScreenColor.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModelMultiplyAndScreenColor.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModelUserData.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModelUserData.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModelUserDataJson.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismModelUserDataJson.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismUserModel.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Model\CubismUserModel.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\ACubismMotion.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\ACubismMotion.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismExpressionMotion.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismExpressionMotion.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismExpressionMotionManager.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismExpressionMotionManager.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotion.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotion.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionInternal.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionJson.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionJson.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionManager.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionManager.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionQueueEntry.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionQueueEntry.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionQueueManager.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismMotionQueueManager.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismUpdateScheduler.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismUpdateScheduler.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismBreathUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismBreathUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismExpressionUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismExpressionUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismEyeBlinkUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismEyeBlinkUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismLipSyncUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismLipSyncUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismLookUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismLookUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismPhysicsUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismPhysicsUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismPoseUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\CubismPoseUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\ICubismUpdater.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\ICubismUpdater.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\IParameterProvider.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Motion\IParameterProvider.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Physics\CubismPhysics.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Physics\CubismPhysics.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Physics\CubismPhysicsInternal.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Physics\CubismPhysicsJson.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Physics\CubismPhysicsJson.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\csmBlendMode.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\csmBlendMode.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\CubismClippingManager.hpp" />
+    <None Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\CubismClippingManager.tpp">
+    </None>
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\CubismRenderer.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\CubismRenderer.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\ICubismOffscreenManager.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\ICubismOffscreenRenderTarget.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismDeviceInfo_D3D11.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismDeviceInfo_D3D11.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismNativeInclude_D3D11.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismOffscreenManager_D3D11.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismOffscreenManager_D3D11.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismOffscreenRenderTarget_D3D11.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismOffscreenRenderTarget_D3D11.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismRenderer_D3D11.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismRenderer_D3D11.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismRenderState_D3D11.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismRenderState_D3D11.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismRenderTarget_D3D11.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismRenderTarget_D3D11.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismShader_D3D11.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismShader_D3D11.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Rendering\D3D11\CubismType_D3D11.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\csmMap.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\csmRectF.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\csmRectF.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\csmString.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\csmString.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\csmVector.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\csmVectorSort.hpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Type\CubismBasicType.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Utils\CubismDebug.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Utils\CubismDebug.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Utils\CubismJson.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Utils\CubismJson.hpp" />
+    <ClCompile Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Utils\CubismString.cpp" />
+    <ClInclude Include="C:\Users\14623\大肥鱼插件\sdk\CubismSdkForNative-5-r.5\Framework\src\Utils\CubismString.hpp" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="C:\Users\14623\大肥鱼插件\renderer\build\ZERO_CHECK.vcxproj">
+      <Project>{DAC8D48C-5F9C-35FB-9F92-168A423A9D04}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
