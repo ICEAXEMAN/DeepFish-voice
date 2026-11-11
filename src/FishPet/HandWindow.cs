@@ -36,6 +36,9 @@ internal sealed class HandWindow : Window
         };
     }
 
+    // 她被别的置顶窗口盖住、重新放回最上面以后，手要在她之上。
+    internal void Raise() { if (IsVisible) ZOrder.Raise(new WindowInteropHelper(this).Handle); }
+
     // center：手掌中心，屏幕上的 DIP 坐标。
     internal void Update(Point center, HandPose pose)
     {

@@ -108,6 +108,9 @@ internal sealed class BubbleWindow : Window
         Top = Math.Clamp(top, area.Top, Math.Max(area.Top, area.Bottom - ActualHeight));
     }
 
+    // 她被别的置顶窗口盖住、重新放回最上面以后，气泡要在她之上。
+    internal void Raise() { if (IsVisible) ZOrder.Raise(new WindowInteropHelper(this).Handle); }
+
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     private static extern nint GetWindowLongPtr(nint hwnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -81,8 +81,11 @@ internal sealed class Music : IDisposable
     }
 
     // 白名单里的音乐软件此刻有没有在出声。
-    // 两条都满足才算：① 它自己电平 ≥ 0.03（太小就是暂停/残留）；② 它是当前最响的几个之一（≥ 最响的 50%）
-    // ——这样放歌时算，聊天/视频盖过音乐时不算（2026-11-10 改，之前固定 0.05 太死板）。
+    // ① 它自己有活跃会话、电平 ≥ 0.03，而且没被别的软件彻底压住（≥ 最响的 25%）就算。
+    //    DirectSound 的会话表常常偏低、发死（2026-11-11 实测：网易云 DirectSound 一直是 0.045，
+    //    设备整体却在 0.04~0.17 之间起伏），以前“固定要最响的一半”会一直判成没在放。
+    // ② 连会话都没有（DirectSound「主声音驱动程序」）时：白名单软件在跑、别的软件都没出声，
+    //    也算它在放；有别的软件在响就不算，免得拿视频、游戏的声音乱跳。
     internal bool AppPlaying(string whitelist)
     {
         if (string.IsNullOrWhiteSpace(whitelist)) return false;
@@ -96,8 +99,42 @@ internal sealed class Music : IDisposable
                 if (name.Length == 0) continue;
                 if (apps.TryGetValue(name, out var level) && level > mine) mine = level;
             }
-            return mine >= .03 && mine >= top * .5;
+            if (mine >= .03 && mine >= top * .25) return true;
+            if (mine > 0) return false;
+            // 没有它的会话：只有“白名单软件在跑 + 除了白名单没人出声”才当它在放。
+            foreach (var (name, level) in apps)
+                if (level >= .03 && !Listed(name, whitelist)) return false;
+            RefreshProcesses();
+            foreach (var raw in whitelist.Split([',', '，', ';'], StringSplitOptions.RemoveEmptyEntries))
+                if (Running.Contains(raw.Trim())) return true;
+            return false;
         }
+    }
+
+    private static readonly HashSet<string> Running = new(StringComparer.OrdinalIgnoreCase);
+    private static DateTime nextRunningLook;
+
+    // 白名单软件在不在跑（没有会话时用），3 秒看一次就够。
+    private static void RefreshProcesses()
+    {
+        if (DateTime.UtcNow < nextRunningLook) return;
+        nextRunningLook = DateTime.UtcNow.AddSeconds(3);
+        Running.Clear();
+        try
+        {
+            foreach (var process in Process.GetProcesses())
+            {
+                try { Running.Add(process.ProcessName); } catch { } finally { process.Dispose(); }
+            }
+        }
+        catch { }
+    }
+
+    private static bool Listed(string name, string whitelist)
+    {
+        foreach (var raw in whitelist.Split([',', '，', ';'], StringSplitOptions.RemoveEmptyEntries))
+            if (string.Equals(raw.Trim(), name, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
     }
 
     internal bool Rhythmic

@@ -51,6 +51,7 @@ internal sealed partial class PetWindow : Window
     private bool standby, ready, hiding, coaxWoke, restarting;
     private int hideToken;
     private DateTime nextFullscreenLook;
+    private DateTime nextRaise;
     private Player? player;
     // 哄睡演示（coax）：记住她原来的位置和大小，好归位。
     private double? coaxLeft, coaxTop;
@@ -840,6 +841,17 @@ internal sealed partial class PetWindow : Window
             UpdateFullscreen(current);
         }
         if (hiddenForFullscreen) return;
+        // 别的程序的置顶窗口跑到她上面时，把她和气泡重新放回最上面（见 ZOrder.cs）。
+        if (!test && IsVisible && DateTime.UtcNow >= nextRaise)
+        {
+            nextRaise = DateTime.UtcNow.AddMilliseconds(700);
+            var me = new WindowInteropHelper(this).Handle;
+            if (ZOrder.CoveredByOthers(me))
+            {
+                ZOrder.Raise(me);
+                bubble.Raise(); mutter.Raise(); handWindow?.Raise();
+            }
+        }
         // Moving the window pushes her body; physics carries that into her hair, skirt and tail.
         double swayX = (Left - lastLeft) * 30, swayY = (Top - lastTop) * 30;
         lastLeft = Left; lastTop = Top;

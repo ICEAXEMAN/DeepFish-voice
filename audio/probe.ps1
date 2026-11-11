@@ -141,6 +141,9 @@ public static class WhaleEar
                             if (level < 0.004) continue;
                             uint pid = session.GetProcessID;
                             if (pid == 0) continue;
+                            // Our own loopback capture shows up as an active session on every device we listen to,
+                            // and its meter follows the device mix: left in, it would outrank the real music app.
+                            if (pid == Process.GetCurrentProcess().Id) continue;
                             string name = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
                             double before;
                             if (!found.TryGetValue(name, out before) || level > before) found[name] = level;
