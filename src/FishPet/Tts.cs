@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -220,6 +220,8 @@ internal static class Tts
             if (string.IsNullOrWhiteSpace(translated)) return null;
             spoken = await English.ToSpoken(translated, word => Translate(word, "en", token));
         }
+        // 时间「24:00」会被合成器一个字一个字念；先规整成「深夜0時」「12時30分」（2026-11-12）。
+        spoken = FishPet.Japanese.Normalize(spoken);
         // 实时语音跟着当前语音包走：第一套 voice/ref\语音参考.wav；第二套 voice_calm/ref\语音参考.wav。
         var useCalm = settings.VoicePack == "calm" && File.Exists(RefCalm);
         var reference = useCalm ? RefCalm : RefJa;
