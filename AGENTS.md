@@ -77,6 +77,7 @@ powershell -ExecutionPolicy Bypass -File setup.ps1 -Check
 
 - 全是 ✓、最后打印出 MCP 的路径，就成功了。把 `check\` 里的两张图给用户看（你的界面显示不了图片，就把文件路径告诉他，请他自己打开），告诉他“她已经能动了，就差接到身上”。
 - 出现 ✗ 就照它说的补上，再运行一次。还有问题看 `插件\errors.log`。
+- `setup.ps1` 最后还会在用户桌面生成一个带图标的「大肥鱼桌宠」快捷方式（图标在 `assets\大肥鱼.ico`；双击 = 她收着就叫她出来 / 没在跑就启动她）。用户不想要就让他删掉，重装时加 `-NoDesktopShortcut`；没建成或者被删了，在插件文件夹里运行 `powershell -ExecutionPolicy Bypass -File 创建桌面快捷方式.ps1` 补一个。
 
 ## 第 6 步：把桌宠接到 AI 身上
 

@@ -56,13 +56,19 @@ Function AskShow(baseUrl, authToken)
         Set http = CreateObject("Microsoft.XMLHTTP")
     End If
     If Err.Number = 0 Then
+        Err.Clear
+        ' Optional: some MSXML builds lack setTimeouts (error 438). Clear it so the
+        ' successful request below is not judged as a failure.
         http.setTimeouts 1500, 1500, 3000, 4000
+        Err.Clear
         http.Open "POST", baseUrl & "/call/show", False
-        http.setRequestHeader "Authorization", "Bearer " & authToken
-        http.setRequestHeader "Content-Type", "application/json"
-        http.Send "{}"
         If Err.Number = 0 Then
-            If http.Status = 200 Then done = True
+            http.setRequestHeader "Authorization", "Bearer " & authToken
+            http.setRequestHeader "Content-Type", "application/json"
+            http.Send "{}"
+            If Err.Number = 0 Then
+                If http.Status = 200 Then done = True
+            End If
         End If
     End If
     On Error GoTo 0
