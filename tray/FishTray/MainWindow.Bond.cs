@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Windows;
@@ -8,31 +9,47 @@ using System.Windows.Media.Animation;
 
 namespace FishTray;
 
-// 面板上的“陪伴”卡片（本机加，2026-11-08）：亲密度的心形进度条、番茄钟的圆环倒计时。数据来自 get_state 的 affection、focus。
+// 面板上的“陪伴”卡片（本机加，2026-11-08）：羁绊（原“亲密度”，2026-11-13 改名改版）的竖条纹进度条和五个节点、番茄钟的圆环倒计时。数据来自 get_state 的 affection、focus。
 public partial class MainWindow
 {
-    private static readonly string[] LevelNames = ["初识", "熟悉", "亲近", "黏人", "最喜欢"];
+    private static readonly string[] LevelNames = ["初识", "磨合", "同频", "默契", "羁绊"];
     private readonly System.Windows.Threading.DispatcherTimer focusClock = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private string focusPhase = "none";
     private DateTime focusEnds;
     private double focusTotal = 25 * 60;
-    private double heartRatio;
+    private double bondRatio;   // 整条走了多少：(已到的等级 − 1 + 这一级里的进度) / 4
     private int shownLevel;
     private bool bondWired;
+
+    // 条纹一格的宽（和 xaml 里 BondStripes 的 Viewport 宽一致），条按整格走，不露半截条纹
+    private const double StripePitch = 6;
+    // 条里面离卡片边的距离：边框 1.4 + 内边距 7（和 xaml 里 BondTrack、BondInner 对得上），节点要和条的两头对齐
+    private const double BondInset = 8.4;
+    private readonly List<(Grid Marker, System.Windows.Shapes.Ellipse Halo, System.Windows.Shapes.Ellipse Dot, TextBlock Label)> bondNodes = [];
+
+    private static SolidColorBrush Rgb(byte r, byte g, byte b) => new(Color.FromRgb(r, g, b));
 
     private void WireBond()
     {
         if (bondWired) return;
         bondWired = true;
-        // 五个等级的小刻度
+        // 五个节点：外圈（当前级才亮）、圆点、名字
         for (int i = 0; i < LevelNames.Length; i++)
         {
-            var dot = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = i == 0 ? HorizontalAlignment.Left : i == LevelNames.Length - 1 ? HorizontalAlignment.Right : HorizontalAlignment.Center };
-            dot.Children.Add(new System.Windows.Shapes.Ellipse { Width = 5, Height = 5, Margin = new Thickness(0, 1, 4, 0), VerticalAlignment = VerticalAlignment.Center, Fill = (Brush)FindResource("LineBrush") });
-            dot.Children.Add(new TextBlock { Text = LevelNames[i], FontSize = 10.5, Foreground = (Brush)FindResource("SubBrush") });
-            LevelDots.Children.Add(dot);
+            var halo = new System.Windows.Shapes.Ellipse { Width = 15, Height = 15, Stroke = Rgb(0x7C, 0xC4, 0xFF), StrokeThickness = 1.2, Opacity = 0, IsHitTestVisible = false };
+            var dot = new System.Windows.Shapes.Ellipse { Width = 9, Height = 9, StrokeThickness = 1.3, IsHitTestVisible = false };
+            var label = new TextBlock { Text = LevelNames[i], FontSize = 10.5, IsHitTestVisible = false };
+            // 外环和圆点装进同一个 15×15 的格子里各自居中，所以一定同心（以前各摆各的，会差半个像素）
+            var marker = new Grid { Width = 15, Height = 15, IsHitTestVisible = false };
+            marker.Children.Add(halo); marker.Children.Add(dot);
+            BondNodes.Children.Add(marker); BondNodes.Children.Add(label);
+            bondNodes.Add((marker, halo, dot, label));
         }
-        ((FrameworkElement)HeartFill.Parent).SizeChanged += (_, _) => PlaceHeart(false);
+        BondNodes.UseLayoutRounding = true;
+        BondNodes.SizeChanged += (_, _) => LayoutNodes();
+        BondInner.SizeChanged += (_, _) => PlaceBond(false);
+        StyleNodes(1);
+        SetBondIcon(1, false);
         FocusButton.Click += async (_, _) =>
         {
             bool start = focusPhase == "none";
@@ -45,12 +62,6 @@ public partial class MainWindow
         };
         focusClock.Tick += (_, _) => DrawFocus();
         IsVisibleChanged += (_, _) => { if (IsVisible) focusClock.Start(); else focusClock.Stop(); };
-        // 心轻轻地跳：1.6 秒一次，很小
-        var beat = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromSeconds(1.6), RepeatBehavior = RepeatBehavior.Forever };
-        foreach (var (at, value) in new[] { (0.0, 1.0), (0.12, 1.14), (0.24, 1.0), (0.36, 1.09), (0.55, 1.0), (1.0, 1.0) })
-            beat.KeyFrames.Add(new EasingDoubleKeyFrame(value, KeyTime.FromPercent(at), new SineEase { EasingMode = EasingMode.EaseInOut }));
-        HeartBeat.BeginAnimation(ScaleTransform.ScaleXProperty, beat);
-        HeartBeat.BeginAnimation(ScaleTransform.ScaleYProperty, beat);
         DrawFocus();
     }
 
@@ -66,20 +77,18 @@ public partial class MainWindow
             LevelName.Text = name;
             LevelBadge.Text = "Lv" + level;
             PointsText.Text = points.ToString();
-            string todayText = today > 0 ? $"今天 +{today}" : today < 0 ? $"今天 {today}" : "今天还没变";
-            LevelHint.Text = nextName == null ? (points >= 200 ? "满满的喜欢 ♥" : "已经是最喜欢啦 ♥") + " · " + todayText : $"再 {Math.Max(0, next - points)} 分到「{nextName}」 · {todayText}";
-            HeartRow.ToolTip = "摸头、聊天、按时睡觉、陪她专注会加；戳裙子、连点她、熬夜过 1 点、好几天不来会减。\n到了「熟悉」以后，最多掉回「熟悉」。";
-            double ratio = nextName == null ? 1 : next > from ? Math.Clamp((points - from) / (double)(next - from), 0, 1) : 0;
+            LevelHint.Text = nextName == null ? (points >= 200 ? "羁绊 · 已满格，满满的喜欢 ♥" : "羁绊 · 已经到最高阶啦 ♥") : $"羁绊 · 再 {Math.Max(0, next - points)} 点到「{nextName}」";
+            // 右边的小标签：今天涨了绿、掉了红、没变灰
+            TodayText.Text = today > 0 ? $"今天 ▲ +{today}" : today < 0 ? $"今天 ▼ {today}" : "今天还没变";
+            TodayText.Foreground = today > 0 ? Rgb(0x6F, 0xE0, 0xB0) : today < 0 ? Rgb(0xFF, 0x9F, 0xB0) : (Brush)FindResource("SubBrush");
+            TodayChip.Background = today > 0 ? new SolidColorBrush(Color.FromArgb(0x26, 0x6F, 0xE0, 0xB0)) : today < 0 ? new SolidColorBrush(Color.FromArgb(0x26, 0xFF, 0x9F, 0xB0)) : new SolidColorBrush(Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF));
+            double within = nextName == null ? 1 : next > from ? Math.Clamp((points - from) / (double)(next - from), 0, 1) : 0;
+            double ratio = nextName == null ? 1 : ((level - 1) + within) / (LevelNames.Length - 1);
             bool grew = shownLevel != 0 && level > shownLevel;
             shownLevel = level;
-            if (Math.Abs(ratio - heartRatio) > 0.0001 || grew) { heartRatio = ratio; PlaceHeart(true); }
-            for (int i = 0; i < LevelDots.Children.Count; i++)
-            {
-                var dot = (StackPanel)LevelDots.Children[i];
-                bool reached = i < level;
-                ((System.Windows.Shapes.Ellipse)dot.Children[0]).Fill = reached ? new SolidColorBrush(Color.FromRgb(0xFF, 0x8F, 0xB8)) : (Brush)FindResource("LineBrush");
-                ((TextBlock)dot.Children[1]).Foreground = i == level - 1 ? new SolidColorBrush(Color.FromRgb(0xFF, 0xC2, 0xD9)) : (Brush)FindResource("SubBrush");
-            }
+            if (Math.Abs(ratio - bondRatio) > 0.0001 || grew) { bondRatio = ratio; PlaceBond(true); }
+            StyleNodes(level);
+            SetBondIcon(level, true);
         }
         if (s.TryGetProperty("focus", out var f) && f.ValueKind == JsonValueKind.Object)
         {
@@ -102,14 +111,59 @@ public partial class MainWindow
         }
     }
 
-    // 心形进度条：宽度跟着这一级走了多少，变化时滑过去
-    private void PlaceHeart(bool animate)
+    // 左边的图标：等级变了才重画，升级时淡入一下
+    private int iconLevel;
+    private void SetBondIcon(int level, bool fade)
     {
-        var host = (FrameworkElement)HeartFill.Parent;
-        double width = host.ActualWidth * heartRatio;
-        if (width > 0 && width < 8) width = 8; // 有一点也露个圆头
-        if (!animate || host.ActualWidth <= 0) { HeartFill.BeginAnimation(WidthProperty, null); HeartFill.Width = width; return; }
-        HeartFill.BeginAnimation(WidthProperty, new DoubleAnimation(width, TimeSpan.FromMilliseconds(600)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        if (level == iconLevel) return;
+        bool first = iconLevel == 0;
+        iconLevel = level;
+        BondIconHost.Child = BondIcon.Build(level);
+        if (fade && !first) BondIconHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0.2, 1, TimeSpan.FromMilliseconds(500)));
+    }
+
+    // 羁绊条：宽度跟着整条（五个阶段）走了多少，变化时滑过去；按整格条纹取宽，有一点也至少亮一格
+    private void PlaceBond(bool animate)
+    {
+        double inner = BondInner.ActualWidth;
+        double width = inner * bondRatio;
+        if (width > 0) width = Math.Min(inner, Math.Max(StripePitch, Math.Round(width / StripePitch) * StripePitch));
+        if (!animate || inner <= 0) { BondFill.BeginAnimation(WidthProperty, null); BondFill.Width = width; return; }
+        BondFill.BeginAnimation(WidthProperty, new DoubleAnimation(width, TimeSpan.FromMilliseconds(600)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+    }
+
+    // 节点摆在条的下面，第 i 个在整条的 i/4 处；名字在节点下面居中，头尾的不超出卡片
+    private void LayoutNodes()
+    {
+        double w = BondNodes.ActualWidth;
+        if (w <= 0) return;
+        double span = w - 2 * BondInset;
+        for (int i = 0; i < bondNodes.Count; i++)
+        {
+            double x = BondInset + span * i / (bondNodes.Count - 1);
+            var (marker, _, _, label) = bondNodes[i];
+            Canvas.SetLeft(marker, x - marker.Width / 2); Canvas.SetTop(marker, 9 - marker.Height / 2);
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(label, Math.Clamp(x - label.DesiredSize.Width / 2, 0, Math.Max(0, w - label.DesiredSize.Width)));
+            Canvas.SetTop(label, 19);
+        }
+    }
+
+    // 到过的节点实心点亮；当前这一级再加一圈外环、名字最亮；下一级的轮廓亮一点；更远的都暗着
+    private void StyleNodes(int level)
+    {
+        int current = Math.Clamp(level, 1, bondNodes.Count) - 1;
+        for (int i = 0; i < bondNodes.Count; i++)
+        {
+            var (_, halo, dot, label) = bondNodes[i];
+            if (i < current) { dot.Fill = Rgb(0x7C, 0xC4, 0xFF); dot.Stroke = Rgb(0x7C, 0xC4, 0xFF); }
+            else if (i == current) { dot.Fill = Rgb(0xD6, 0xEE, 0xFF); dot.Stroke = Rgb(0xD6, 0xEE, 0xFF); }
+            else { dot.Fill = Rgb(0x0B, 0x16, 0x40); dot.Stroke = i == current + 1 ? Rgb(0x7C, 0xC4, 0xFF) : Rgb(0x3A, 0x4F, 0x8C); }
+            halo.Opacity = i == current ? 0.9 : 0;
+            label.Foreground = i == current ? (Brush)FindResource("TextBrush") : i == current + 1 ? (Brush)FindResource("SubBrush") : Rgb(0x5A, 0x6A, 0x9C);
+            label.FontWeight = i == current ? FontWeights.SemiBold : FontWeights.Normal;
+        }
+        LayoutNodes();
     }
 
     // 圆环：专注是蓝色、休息是绿色，走掉的部分缩短；中间写剩下的时间

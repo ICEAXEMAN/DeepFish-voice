@@ -20,6 +20,13 @@ The original project is used and modified with the author's permission.
 - 模型来源：神宫凉子免费配布模型（BV1KmxY66EZ3）
 - 角色设定许可：CC BY-NC-SA 4.0
 
+## 随仓库分发的第三方代码 / Bundled third-party code
+
+以下两样采用 MIT 许可，各自的版权声明和许可条款以原项目为准：
+
+- **NAudio** 1.10.0（`audio/NAudio.dll`，随包分发），Copyright © Mark Heath & Contributors，MIT：https://github.com/naudio/NAudio
+- **dsh-whale-pulse**（"鱼的耳机"）的音频采集器，`audio/probe.ps1` 改自它的 `runtime/probe.ps1`，MIT：https://github.com/XiaTian-606/dsh-whale-pulse ；改动见 `audio/README.md`
+
 ## 重要说明 / Important
 
 - 本仓库**不包含** Live2D 模型文件。模型的使用规则以神宫凉子的《使用须知》为准；请到原作者发布页获取，不要二次分发模型文件。

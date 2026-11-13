@@ -97,58 +97,61 @@
                         </Grid>
                     </Border>
 
-                    <!-- 陪伴：亲密度（心形进度）+ 番茄钟（本机加，2026-11-08） -->
+                    <!-- 陪伴：羁绊（竖条纹进度条 + 五个节点）+ 番茄钟（本机加，2026-11-08；羁绊条 2026-11-13 改版） -->
                     <Border x:Name="BondCard" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource CardLineBrush}" BorderThickness="1" CornerRadius="14" Padding="16,14,16,14" Margin="0,0,0,12">
                         <StackPanel>
-                            <!-- 亲密度 -->
+                            <!-- 羁绊 -->
                             <Grid x:Name="HeartRow" Background="Transparent">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <Grid Width="30" Height="30" VerticalAlignment="Center">
-                                    <Ellipse Fill="#26FF7FAE"/>
-                                    <Path x:Name="HeartIcon" Width="16" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,1,0,0" RenderTransformOrigin="0.5,0.5"
-                                          Data="M12,21 C12,21 3,14.5 3,8.6 C3,5.5 5.4,3 8.3,3 C10,3 11.3,3.9 12,5.1 C12.7,3.9 14,3 15.7,3 C18.6,3 21,5.5 21,8.6 C21,14.5 12,21 12,21 Z">
-                                        <Path.Fill>
-                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                <GradientStop Color="#FFB3CF" Offset="0"/>
-                                                <GradientStop Color="#FF5C93" Offset="1"/>
-                                            </LinearGradientBrush>
-                                        </Path.Fill>
-                                        <Path.Effect><DropShadowEffect Color="#FF6FA3" BlurRadius="8" ShadowDepth="0" Opacity="0.7"/></Path.Effect>
-                                        <Path.RenderTransform><ScaleTransform x:Name="HeartBeat" ScaleX="1" ScaleY="1"/></Path.RenderTransform>
-                                    </Path>
-                                </Grid>
+                                <!-- 羁绊图标：五级各一个，同一条虎鲸尾巴逐级升级（BondIcon.cs 里画） -->
+                                <Border x:Name="BondIconHost" Width="40" Height="40" VerticalAlignment="Center"/>
                                 <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock x:Name="LevelName" Text="初识" FontSize="14" FontWeight="SemiBold"/>
-                                        <Border CornerRadius="7" Padding="6,1" Margin="7,1,0,0" VerticalAlignment="Center" Background="#33FF7FAE" BorderBrush="#66FF8FB8" BorderThickness="1">
-                                            <TextBlock x:Name="LevelBadge" Text="Lv1" FontSize="10.5" FontWeight="SemiBold" Foreground="#FFC2D9"/>
+                                        <Border CornerRadius="7" Padding="6,1" Margin="7,1,0,0" VerticalAlignment="Center" Background="#337CC4FF" BorderBrush="#667CC4FF" BorderThickness="1">
+                                            <TextBlock x:Name="LevelBadge" Text="Lv1" FontSize="10.5" FontWeight="SemiBold" Foreground="#BFE3FF"/>
                                         </Border>
                                     </StackPanel>
-                                    <TextBlock x:Name="LevelHint" Text="多陪陪她，亲密度会慢慢涨" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="LevelHint" Text="羁绊 · 多陪陪她，会慢慢加深" Style="{StaticResource Caption}" Margin="0,2,0,0"/>
                                 </StackPanel>
-                                <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12">
-                                    <Run x:Name="PointsText" Text="0" Foreground="#FFC2D9" FontWeight="SemiBold" FontSize="14"/><Run Text=" / 200" Foreground="{StaticResource SubBrush}"/>
-                                </TextBlock>
+                                <!-- 右边只放羁绊值，不再写 / 200（进度看下面的条）；下面是今天的涨跌 -->
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock x:Name="PointsText" Text="0" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"/>
+                                    <Border x:Name="TodayChip" CornerRadius="7" Padding="6,1" Margin="0,2,0,0" HorizontalAlignment="Right" Background="#1AFFFFFF">
+                                        <TextBlock x:Name="TodayText" Text="今天还没变" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource SubBrush}"/>
+                                    </Border>
+                                </StackPanel>
                             </Grid>
-                            <!-- 心形进度条：这一级里走了多少 -->
-                            <Grid Height="8" Margin="0,11,0,0">
-                                <Border CornerRadius="4" Background="#1A2A5C" BorderBrush="#2A3F7A" BorderThickness="1"/>
-                                <Border x:Name="HeartFill" CornerRadius="4" HorizontalAlignment="Left" Width="0">
-                                    <Border.Background>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                            <GradientStop Color="#C76BFF" Offset="0"/>
-                                            <GradientStop Color="#FF7FAE" Offset="1"/>
-                                        </LinearGradientBrush>
-                                    </Border.Background>
-                                    <Border.Effect><DropShadowEffect Color="#FF7FAE" BlurRadius="8" ShadowDepth="0" Opacity="0.55"/></Border.Effect>
-                                </Border>
-                            </Grid>
-                            <!-- 五级的小刻度 -->
-                            <UniformGrid x:Name="LevelDots" Rows="1" Columns="5" Margin="0,7,0,0"/>
+                            <!-- 羁绊条：整条是五个等级走到哪了，竖条纹，亮度往前端渐强（样子照用户给的参考图） -->
+                            <Border x:Name="BondTrack" Height="22" Margin="0,13,0,0" CornerRadius="11" Background="#060C26" BorderBrush="#6FA8E8" BorderThickness="1.4" SnapsToDevicePixels="True">
+                                <Border.Resources>
+                                    <DrawingBrush x:Key="BondStripes" TileMode="Tile" Viewport="0,0,6,40" ViewportUnits="Absolute" Viewbox="0,0,6,40" ViewboxUnits="Absolute">
+                                        <DrawingBrush.Drawing>
+                                            <GeometryDrawing Brush="White"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,4,40"/></GeometryDrawing.Geometry></GeometryDrawing>
+                                        </DrawingBrush.Drawing>
+                                    </DrawingBrush>
+                                </Border.Resources>
+                                <Grid x:Name="BondInner" Margin="7,4" SnapsToDevicePixels="True">
+                                    <!-- 还没走到的部分：很暗的竖条 -->
+                                    <Border Background="#1A2858" OpacityMask="{StaticResource BondStripes}"/>
+                                    <!-- 走过的部分：左暗右亮 -->
+                                    <Border x:Name="BondFill" HorizontalAlignment="Left" Width="0" OpacityMask="{StaticResource BondStripes}">
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Color="#28489A" Offset="0"/>
+                                                <GradientStop Color="#4A90D8" Offset="0.55"/>
+                                                <GradientStop Color="#B5E6FF" Offset="1"/>
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <!-- 五个节点和名字：节点在代码里按条的宽度摆 -->
+                            <Canvas x:Name="BondNodes" Height="34" Margin="0,5,0,0"/>
 
                             <Border Height="1" Background="{StaticResource LineBrush}" Margin="0,13,0,13" Opacity="0.8"/>
 

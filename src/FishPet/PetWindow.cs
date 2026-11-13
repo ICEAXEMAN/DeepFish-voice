@@ -390,9 +390,18 @@ internal sealed partial class PetWindow : Window
         coaxFollowMouse = settings.FollowMouse;
     }
 
-    // 摆好某一层的体型、大小和位置并出场。返回出场位置；stage 非法返回 null。
-    private (double Left, double Top)? RunStage(int stage)
+    // 记下了位置但这一层没演成（被收起、退出打断）：把记录丢掉，等于没记过。
+    private void ForgetPlace()
     {
+        coaxShape = null;
+        coaxScale = 0;
+        coaxLeft = coaxTop = null;
+    }
+
+    // 摆好某一层的体型、大小和位置并出场。返回出场位置；stage 非法返回 null。
+    private (double Left, double Top)? RunStage(int stage, int fadeInMs = 220)
+    {
+        coaxEpoch++; // 正在归位的话作废
         var area = SystemParameters.WorkArea;
         double targetLeft, targetTop;
         switch (stage)
@@ -439,7 +448,7 @@ internal sealed partial class PetWindow : Window
             default:
                 return null;
         }
-        AppearAt(targetLeft, targetTop);
+        AppearAt(targetLeft, targetTop, fadeInMs: fadeInMs);
         return (targetLeft, targetTop);
     }
 
@@ -454,18 +463,28 @@ internal sealed partial class PetWindow : Window
         SayLine(coaxStage4Text ?? "为 什 么 还 没 睡 ？", null, 2); // 每字 0.5 秒（台词由 AI 实时生成）
     }
 
-    // 归位：恢复原来的体型、大小、视线跟随和位置（上一次消失的地方）。
-    private void CoaxReturn()
+    // 归位（用户 2026-11-13 改）：先快速鞠躬淡出退场，趁看不见恢复原来的体型、大小、视线跟随，
+    // 再在上一次的位置快速淡入。不再是正中的她一下变小、一下跳回去。
+    private int coaxEpoch; // 归位的路上又来了新的一层（RunStage）就把这次归位作废，别两边抢
+    private async void CoaxReturn()
     {
-        if (coaxShape != null) { settings.Shape = coaxShape; player?.SetShape(Shape); coaxShape = null; }
-        settings.FollowMouse = coaxFollowMouse;
-        if (coaxScale > 0) { settings.Scale = coaxScale; ApplySize(); }
-        if (coaxLeft is { } l && coaxTop is { } t) AppearAt(l, t, () => body.Relax()); // 淡出后收起黑脸盯人的样子
-        else body.Relax();
-        coaxLeft = coaxTop = null; coaxScale = 0;
-        coaxAutoReturn = false; coaxSpeechSeen = false; coaxReturnAt = null;
-        coaxHoldPose = false;
-        if (coaxWoke) { coaxWoke = false; _ = HideAfterCoax(); }
+        coaxAutoReturn = false; coaxSpeechSeen = false; coaxReturnAt = null; // 别每帧再触发
+        int epoch = ++coaxEpoch;
+        try
+        {
+            bool visible = await QuickLeave();
+            if (epoch != coaxEpoch) return;
+            if (coaxShape != null) { settings.Shape = coaxShape; player?.SetShape(Shape); coaxShape = null; }
+            settings.FollowMouse = coaxFollowMouse;
+            if (coaxScale > 0) { settings.Scale = coaxScale; ApplySize(); }
+            double left = coaxLeft ?? Left, top = coaxTop ?? Top;
+            coaxLeft = coaxTop = null; coaxScale = 0;
+            coaxHoldPose = false;
+            if (visible) AppearAt(left, top, () => body.Relax(), EnterFadeMs); // 在看不见的时候收起黑脸盯人的样子
+            else { body.Relax(); Left = left; Top = top; } // 被收起/退出打断：她们自己管淡出，这里只把状态放回去
+        }
+        catch (Exception error) { Places.Log("归位出错：" + error.Message); }
+        if (epoch == coaxEpoch && coaxWoke) { coaxWoke = false; _ = HideAfterCoax(); }
     }
 
     private async Task HideAfterCoax()
@@ -483,6 +502,7 @@ internal sealed partial class PetWindow : Window
         if (hiding) { hiding = false; image.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(200))); }
         if (!standby) return false;
         standby = false;
+        alarmLast = DateTime.Now; // 收着的时候主计时器不转，错过的哄睡/午饭提醒不补（否则出来后 2 分钟内会被补演一遍，用户 2026-11-13 不要）
         StartMusic(); // 出来了才开始听歌（收着的时候不白开采集进程）。要在 standby 落下之后：StartMusic 自己会看 standby
         nextFullscreenLook = default;
         if (player is { } current) UpdateFullscreen(current);
@@ -805,14 +825,14 @@ internal sealed partial class PetWindow : Window
     }
 
     // 出场/换位：先淡出消失，再到新位置淡入（去掉滑动效果）。mid 在淡出后、换位前做。
-    private async void AppearAt(double left, double top, Action? mid = null)
+    private async void AppearAt(double left, double top, Action? mid = null, int fadeInMs = 220)
     {
         image.BeginAnimation(OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(120)));
         await Task.Delay(140);
         mid?.Invoke();
         Left = left; Top = top;
         RaiseAboveAll(); // 换位/出场后先回到最上层（哄睡把她摆到屏幕正中时，正好压在别的窗口上）
-        image.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)));
+        image.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(fadeInMs)));
     }
 
     // A topmost window draws over the taskbar: whatever of her reaches it is not drawn, and clicks there
@@ -997,8 +1017,11 @@ internal sealed partial class PetWindow : Window
     // unseen, and she is back on top once it is gone. Not in a test, which is out of sight anyway.
     private void UpdateFullscreen(Player current)
     {
-        bool covered = standby || (settings.HideOnFullscreen && !test && Fullscreen.InFront());
+        string who = "";
+        bool overlay = !standby && !test && Fullscreen.OverlayInFront(out who); // 截图/录屏浮层：不管开关，她都让开
+        bool covered = standby || overlay || (settings.HideOnFullscreen && !test && Fullscreen.InFront());
         if (covered == hiddenForFullscreen) return;
+        if (covered && overlay) Places.Log("有铺满全屏的截图/录屏类浮层在最前（" + who + "），她先让开");
         hiddenForFullscreen = covered;
         current.Send($"pause {(covered ? 1 : 0)}");
         bubble.Quiet = covered || test;
@@ -1400,6 +1423,7 @@ internal sealed partial class PetWindow : Window
         }
         await Task.Yield(); // 收起待命时上面一个 await 都没有，不让出的话 Close() 会落在关闭事件里面而报错（本机修，2026-11-06）
         exitReady = true;
+        timeEndPeriod(1);
         Close();
         Application.Current.Shutdown();
     }
@@ -1840,4 +1864,5 @@ internal sealed partial class PetWindow : Window
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(nint hwnd, out uint process);
     // 摸头的手要更高帧（本机加，2026-11-11）：把计时精度提到 1ms，关闭时恢复
     [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint period);
+    [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint period);
 }

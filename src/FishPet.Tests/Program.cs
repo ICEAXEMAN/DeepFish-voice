@@ -547,10 +547,10 @@ void VerifyBond()
     Check(loss.Points == 76 && loss.TodayNet == -4, "a full day of losses still lets her gain");
     loss.Apply("挨打", day.AddDays(1));
     Check(loss.Points == 74 && loss.TodayLoss == 2, "a new day, a new 5");
-    // 掉级最多掉回“熟悉”
+    // 掉级最多掉回“磨合”
     var b = new Affection { Points = 22 };
     b.Apply("挨打", day); b.Apply("挨打", day); b.Apply("戳裙子", day);
-    Check(b.Points == 20 && b.Level == 2, "once 熟悉, never back to 初识");
+    Check(b.Points == 20 && b.Level == 2, "once 磨合, never back to 初识");
     var c = new Affection { Points = 61 };
     c.Apply("挨打", day);
     Check(c.Points == 59 && c.Level == 2 && c.Pending.SequenceEqual(["降级"]), "levels can drop, and she says so");

@@ -84,8 +84,14 @@ internal sealed class Settings
             if (File.Exists(Places.SettingsFile) && JsonSerializer.Deserialize<Settings>(File.ReadAllText(Places.SettingsFile)) is { } loaded)
                 return loaded.Checked();
         }
-        catch (Exception error) { Places.Log("设置读不出来，用默认的：" + error.Message); }
-        return new Settings { Welcomed = !Welcome.Pending(File.Exists(Places.SettingsFile)) }; // 没有 settings.json = 新装，等一下要说欢迎
+        catch (Exception error)
+        {
+            Places.Log("设置读不出来，用默认的：" + error.Message);
+            // 读坏的原件留一份，不然下一次存盘就把它盖掉了（里面可能有 LLM key，还有别的设置）
+            try { File.Copy(Places.SettingsFile, Places.SettingsFile + ".bad", overwrite: true); } catch { }
+        }
+        // 没有设置文件：全新安装（或读坏了，读坏的走上面的 catch，不算新装）。新装的第一次出场要说欢迎
+        return new Settings { Welcomed = !Welcome.Pending(File.Exists(Places.SettingsFile)) };
     }
 
     internal Settings Checked()
@@ -113,7 +119,13 @@ internal sealed class Settings
 
     internal void Save()
     {
-        try { File.WriteAllText(Places.SettingsFile, JsonSerializer.Serialize(this, Format)); }
+        try
+        {
+            // 先写临时文件再换过去：写到一半被杀进程、断电，也不会留下半截 settings.json（里面有 LLM key）
+            var temp = Places.SettingsFile + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, Format));
+            File.Move(temp, Places.SettingsFile, overwrite: true);
+        }
         catch (Exception error) { Places.Log("设置存不下来：" + error.Message); }
     }
 }

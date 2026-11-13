@@ -8,6 +8,18 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 function Ok($text) { Write-Host ('✓ ' + $text) -ForegroundColor Green }
 function Missing($text) { Write-Host ('✗ ' + $text) -ForegroundColor Red; exit 1 }
+# 跑一条原生命令，输出存进 cache\setup.log；失败时把最后 40 行打出来。
+# （以前这里直接 | Out-Null，失败了只说“看上面的输出”，可上面什么也没有。）
+function Run($label, [scriptblock]$command) {
+    $logDir = Join-Path $root 'cache'
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    $log = Join-Path $logDir 'setup.log'
+    $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue' # Windows PowerShell 5.1 会把原生命令的 stderr 当成错误抛出来
+    & $command 2>&1 | ForEach-Object { "$_" } | Out-File -LiteralPath $log -Encoding utf8
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $previous
+    if ($code -ne 0) { Get-Content -LiteralPath $log -Tail 40 | Out-Host; Missing "$label 失败了：上面是日志最后 40 行，完整的在 cache\setup.log。" }
+}
 
 if (![Environment]::Is64BitOperatingSystem) { Missing '只支持 64 位 Windows。' }
 
@@ -51,10 +63,8 @@ function Free($folder) {
 # 渲染器（链接 Cubism Core，只在你自己电脑上编译，不要把 renderer\build 分享给别人）
 $renderer = Join-Path $root 'renderer'
 Free (Join-Path $renderer 'build\Release')
-& $cmake -S $renderer -B (Join-Path $renderer 'build') -G $generator -A x64 "-DCUBISM_SDK=$($sdk -replace '\\', '/')" | Out-Null
-if ($LASTEXITCODE -ne 0) { Missing '渲染器配置失败，看上面的输出。' }
-& $cmake --build (Join-Path $renderer 'build') --config Release --parallel --target l2d-render | Out-Null
-if ($LASTEXITCODE -ne 0) { Missing '渲染器编译失败，看上面的输出。' }
+Run '渲染器配置' { & $cmake -S $renderer -B (Join-Path $renderer 'build') -G $generator -A x64 "-DCUBISM_SDK=$($sdk -replace '\\', '/')" }
+Run '渲染器编译' { & $cmake --build (Join-Path $renderer 'build') --config Release --parallel --target l2d-render }
 Ok '渲染器编译好了'
 
 # .NET 10 SDK
@@ -62,8 +72,7 @@ $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
 if (!$dotnet -or !(& dotnet --list-sdks | Where-Object { $_ -match '^(1[0-9])\.' })) { Missing '没装 .NET 10 SDK。可以运行：winget install Microsoft.DotNet.SDK.10' }
 Free (Join-Path $root 'bin')
 foreach ($project in 'FishPet', 'FishPet.Mcp') {
-    & dotnet publish (Join-Path $root "src\$project\$project.csproj") -c Release -o (Join-Path $root 'bin') --nologo -v q | Out-Null
-    if ($LASTEXITCODE -ne 0) { Missing "$project 编译失败。再运行一次 dotnet publish src\$project\$project.csproj -c Release -o bin 看输出。" }
+    Run "$project 编译" { & dotnet publish (Join-Path $root "src\$project\$project.csproj") -c Release -o (Join-Path $root 'bin') --nologo -v q }
 }
 Ok '桌宠和 MCP 接口编译好了'
 
@@ -72,8 +81,7 @@ $tray = Join-Path $root 'tray\FishTray\FishTray.csproj'
 if (Test-Path -LiteralPath $tray) {
     Get-Process FishTray -ErrorAction SilentlyContinue | Where-Object { $_.Path -like (Join-Path $root 'tray\*') } | Stop-Process -Force -ErrorAction SilentlyContinue
     Free (Join-Path $root 'tray\app')
-    & dotnet publish $tray -c Release -o (Join-Path $root 'tray\app') --nologo -v q | Out-Null
-    if ($LASTEXITCODE -ne 0) { Missing "托盘控制台编译失败。再运行一次 dotnet publish tray\FishTray\FishTray.csproj -c Release -o tray\app 看输出。" }
+    Run '托盘控制台编译' { & dotnet publish $tray -c Release -o (Join-Path $root 'tray\app') --nologo -v q }
     Ok '托盘控制台编译好了'
     # 托盘图标要从普通完整性（Medium）的进程发出去，Explorer 才收；Low 标签会让图标静默消失（本机加，2026-11-11）
     foreach ($dir in @('bin', 'tray\app')) {
@@ -98,7 +106,7 @@ if ($Check) {
 Write-Host ''
 Write-Host '装好了。把下面这个 MCP 服务接进你的 Agent（stdio，没有参数）：' -ForegroundColor Cyan
 Write-Host ('  ' + $mcp)
-Write-Host '  Claude Code： claude mcp add dafeiyu -- "' -NoNewline; Write-Host ($mcp + '"')
+Write-Host '  Claude Code： claude mcp add dafeiyu -s user -- "' -NoNewline; Write-Host ($mcp + '"')
 Write-Host '  其他 Agent：在它的 MCP 配置里加 { "command": "' -NoNewline; Write-Host (($mcp -replace '\\', '\\') + '" }')
 Write-Host '用模型 API 自己搭的程序（没有 MCP）：开着 bin\FishPet.exe，按 api.json 里的地址和口令发 HTTP 请求。'
-Write-Host '然后把 prompt\身体说明.md 填好称呼和名字，加进角色的人设里。详见 AGENTS.md 第 7 步。'
+Write-Host '然后把 prompt\身体说明.md 填好称呼和名字，加进角色的人设里，再验收。详见 AGENTS.md 第 6、7 步。'
