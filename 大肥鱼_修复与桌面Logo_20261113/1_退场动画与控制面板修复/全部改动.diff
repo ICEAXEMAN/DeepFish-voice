@@ -1,0 +1,233 @@
+修复退场动画与控制面板关闭 —— 全部改动（2026-11-13）
+用任意文本编辑器或 VS Code 打开；带 - 的是旧代码，带 + 的是新代码。
+
+--- 修复前/src/FishPet/PetWindow.cs
++++ 修复后/src/FishPet/PetWindow.cs
+@@ -1000,6 +1000,8 @@
+     private void GoWithAgent()
+     {
+         if (test || exiting) return;
++        // 正在收场（退场动画）：等她收完再决定走不走，别让动画演到一半就被打断（用户 2026-11-13）
++        if (hiding) { aloneSince = null; return; }
+         // 本机改（2026-11-11）：DSH 每次工具调用可能重开一次 MCP，桥接一断就退场的话托盘小图标也会跟着消失。
+         // 留一分钟缓冲：真的把 Agent 关了才会走，只是重连或者闲一会儿不算。还有程序在用网页接口时也留着。
+         if ((server?.Connections ?? 0) > 0) { hadAgent = true; aloneSince = null; return; }
+@@ -1820,7 +1822,7 @@
+         voice_enabled = settings.VoiceEnabled,
+         voice_pack = settings.VoicePack, voice_count = voicePack?.Count ?? 0,
+         tts_enabled = settings.TtsEnabled, tts_url = settings.TtsUrl, tts_speed = settings.TtsSpeed, tts_autostart = settings.TtsAutostart, tts_dir = settings.TtsDir,
+-        hide_on_fullscreen = settings.HideOnFullscreen, hidden_for_fullscreen = hiddenForFullscreen && !standby, hidden = standby, start_hidden = settings.StartHidden, keep_on_screen = settings.KeepOnScreen, follow_mouse = settings.FollowMouse,
++        hide_on_fullscreen = settings.HideOnFullscreen, hidden_for_fullscreen = hiddenForFullscreen && !standby, hidden = standby, hiding, start_hidden = settings.StartHidden, keep_on_screen = settings.KeepOnScreen, follow_mouse = settings.FollowMouse,
+         check_updates = settings.CheckUpdates, coax_sleep = settings.CoaxSleep, coax_lunch = settings.CoaxLunch, birthday = settings.Birthday,
+         update = updates.Latest is { } found ? new { current = found.Current, latest = found.Latest, behind = found.Behind, changes = found.Changes, guide = found.Guide } : null,
+         idle_seconds = settings.IdleSeconds, position = new { Left, Top }, saying = speech.IsSaying, reaction = behavior.Showing, trouble,
+
+--- 修复前/tray/FishTray/App.xaml.cs
++++ 修复后/tray/FishTray/App.xaml.cs
+@@ -23,7 +23,10 @@
+     private readonly DispatcherTimer poll = new() { Interval = TimeSpan.FromSeconds(1) };
+     private DateTime startedAt = DateTime.UtcNow;
+     private DateTime? petGoneSince;
++    private DateTime lastGood;
+     private bool petSeen;
++    private bool ticking;
++    private int misses;
+ 
+     internal static void Log(string text)
+     {
+@@ -62,6 +65,7 @@
+             {
+                 wait.Stop();
+                 try { panel.Snapshot(target, more, open, scroll, search); } catch (Exception error) { File.WriteAllText(target + ".err.txt", error.ToString()); }
++                panel.AllowClose = true; // 自检模式要真关窗口退出（平时关窗口只是收起面板）
+                 Shutdown();
+             };
+             wait.Start();
+@@ -106,7 +110,7 @@
+             var logPath = args[self + 1];
+             panel = new MainWindow();
+             panel.Open();
+-            _ = Dispatcher.InvokeAsync(async () => { await System.Threading.Tasks.Task.Delay(1500); await panel.SelfTest(logPath); Shutdown(); });
++            _ = Dispatcher.InvokeAsync(async () => { await System.Threading.Tasks.Task.Delay(1500); await panel.SelfTest(logPath); panel.AllowClose = true; Shutdown(); });
+             return;
+         }
+         single = new Mutex(true, SingleName, out bool first);
+@@ -125,6 +129,11 @@
+         waiter.Start();
+ 
+         panel = new MainWindow();
++        // 她收着的时候把面板关掉（右上角的叉、Esc）：提一句“还在托盘里”，免得让人以为整个桌宠退了（用户 2026-11-13）
++        panel.IsVisibleChanged += (_, _) =>
++        {
++            if (panel is { IsVisible: false, Hidden: true }) Balloon("控制台只是收起来了", "点任务栏里的小鲸鱼图标就能再打开。");
++        };
+         BuildTray();
+         poll.Tick += async (_, _) => { try { await Tick(); } catch (Exception error) { Log("ERR " + error); } };
+         poll.Start();
+@@ -164,6 +173,8 @@
+     private void OpenPanel()
+     {
+         if (panel is null) return;
++        // 她不在了（Agent 退下了，或者被关掉）：点托盘就把她重新叫起来（用户 2026-11-13）
++        if (panel.Hidden is null) Pet.StartPet();
+         if (panel.IsVisible)
+         {
+             if (panel.WindowState == System.Windows.WindowState.Minimized) panel.WindowState = System.Windows.WindowState.Normal;
+@@ -175,34 +186,52 @@
+ 
+     private async System.Threading.Tasks.Task Tick()
+     {
+-        if (panel is null) return;
+-        // 用接口判断她在不在（本机修，2026-11-11）：Process.GetProcessesByName("FishPet") 在这台机器上一直返回空，
+-        // 会误判“桌宠没运行”，40 秒后把控制台和桌宠一起关掉，托盘图标就消失了。
+-        bool running = panel.Hidden is not null;
+-        if (running) { petSeen = true; petGoneSince = null; }
+-        else
+-        {
+-            petGoneSince ??= DateTime.UtcNow;
+-            // 桌宠退场了（或者一直没起来）：控制台也退，不留个空图标
+-            if ((petSeen && DateTime.UtcNow - petGoneSince > TimeSpan.FromSeconds(2)) || (!petSeen && DateTime.UtcNow - startedAt > TimeSpan.FromSeconds(40)))
+-            { Quit(); return; }
+-        }
+-        await panel.Refresh();
+-        if (tray is not null)
+-        {
+-            bool? hidden = panel.Hidden;
+-            tray.Text = hidden is null ? "大肥鱼（连接中）" : hidden == true ? "大肥鱼 · 收起着" : "大肥鱼 · 在桌面上";
+-            // 她收着的时候托盘图标也不露面；她出场（或面板还开着）才出现，默认落在“显示隐藏的图标”里
+-            tray.Visible = hidden == false || panel.IsVisible;
+-        }
++        if (panel is null || ticking) return; // 上一次还没问完就别再发：接口慢的时候请求会越堆越多
++        ticking = true;
++        try
++        {
++            // 用接口判断她在不在（本机修，2026-11-11）：Process.GetProcessesByName("FishPet") 在这台机器上一直返回空，
++            // 会误判“桌宠没运行”，40 秒后把控制台和桌宠一起关掉，托盘图标就消失了。
++            bool running = panel.Hidden is not null;
++            if (running) { petSeen = true; petGoneSince = null; lastGood = DateTime.UtcNow; misses = 0; }
++            else
++            {
++                misses++;
++                petGoneSince ??= DateTime.UtcNow;
++                // 本机修（2026-11-13）：收起、出场那几秒里她偶尔慢一下，不能当成“她走了”。
++                // 以前只等 2 秒就退出控制台；鱼正好在播放退场动画时关掉面板，看上去就是“面板和鱼一起没了”。
++                // 现在要连续几次问不到、而且离最后一次答应过了几秒，才认她真的退场（这时才把控制台也收掉）。
++                bool away = petGoneSince is { } since && DateTime.UtcNow - since > TimeSpan.FromSeconds(6);
++                bool gone = petSeen ? misses >= 4 && away : DateTime.UtcNow - startedAt > TimeSpan.FromSeconds(40);
++                if (!panel.Busy && gone) { Quit(); return; }
++            }
++            await panel.Refresh();
++            if (tray is not null)
++            {
++                bool? hidden = panel.Hidden;
++                tray.Text = hidden is null ? "大肥鱼（连接中）" : hidden == true ? "大肥鱼 · 收起着（点我打开控制台）" : "大肥鱼 · 在桌面上";
++                // 本机改（2026-11-13）：她收着的时候也留着托盘图标——右上角的叉只是把面板收起来，
++                // 要是图标也跟着消失，就再没有入口了，看起来整个桌宠都退出了（用户要的：关掉控制台不等于退出）。
++                bool showIcon = hidden is not null || DateTime.UtcNow - lastGood < TimeSpan.FromSeconds(8) || panel.IsVisible;
++                if (tray.Visible != showIcon) Log("托盘图标" + (showIcon ? "出现" : "收起") + "（hidden=" + (hidden?.ToString() ?? "未知") + "，面板" + (panel.IsVisible ? "开着" : "关着") + "）");
++                tray.Visible = showIcon;
++            }
++        }
++        finally { ticking = false; }
+     }
+ 
+     private void Quit()
+     {
+         poll.Stop();
+         if (tray is not null) { tray.Visible = false; tray.Dispose(); tray = null; }
+-        panel?.Close();
++        if (panel is not null) { panel.AllowClose = true; panel.Close(); }
+         Shutdown();
++    }
++
++    // 气泡提示（不必等用户去任务栏里找）：托盘图标不在“显示隐藏的图标”里时也会弹出来
++    private void Balloon(string title, string text)
++    {
++        try { tray?.ShowBalloonTip(5000, title, text, ToolTipIcon.None); } catch { }
+     }
+ 
+     // 暗色右键菜单
+
+--- 修复前/tray/FishTray/MainWindow.xaml.cs
++++ 修复后/tray/FishTray/MainWindow.xaml.cs
+@@ -48,6 +48,13 @@
+     private readonly System.Windows.Threading.DispatcherTimer toastTimer = new() { Interval = TimeSpan.FromSeconds(2.6) };
+ 
+     internal bool? Hidden { get; private set; }
++
++    // 收起/出场的余波：收场要演一两秒退场动画，这期间面板可能被关掉，托盘不能把“接口慢了一下”当成她不在了（用户 2026-11-13）
++    private DateTime busyUntil = DateTime.MinValue;
++    internal bool Busy => DateTime.UtcNow < busyUntil;
++
++    // 只有 App.Quit() 真要关窗口时才放行；右上角的叉、Esc、Alt+F4 都只是把面板收回托盘（用户 2026-11-13）
++    internal bool AllowClose { get; set; }
+ 
+     private sealed record Seg(RadioButton[] Buttons);
+ 
+@@ -116,6 +123,8 @@
+ 
+         ShowSwitch.Click += async (_, _) => await SetShown(ShowSwitch.IsChecked == true);
+         CloseButton.Click += (_, _) => Hide();
++        // 右上角的叉、Esc、Alt+F4、系统把它关掉：都只把面板收回托盘，控制台不退出，桌宠更不会跟着退（用户 2026-11-13）
++        Closing += (_, e) => { if (!AllowClose) { e.Cancel = true; Hide(); } };
+         PinButton.Click += (_, _) => { ui.Pin = PinButton.IsChecked == true; Topmost = ui.Pin; ui.Save(); Notice(ui.Pin ? "已固定在最前面" : "取消固定"); };
+         MoreToggle.Click += (_, _) => { ui.More = MoreToggle.IsChecked == true; MorePanel.Visibility = ui.More ? Visibility.Visible : Visibility.Collapsed; ui.Save(); };
+         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) { moved = true; try { DragMove(); } catch { } } };
+@@ -499,8 +508,18 @@
+     private async Task SetShown(bool shown)
+     {
+         Touch("show");
++        // 收起后她要鞠一躬再淡出（约两秒）：这段时间面板被关掉也不能影响她，托盘也别急着判断她不在了（用户 2026-11-13）
++        busyUntil = DateTime.UtcNow.AddSeconds(shown ? 6 : 15);
+         ShowHint.Text = shown ? "她来了" : "收起中…";
+-        await Pet.Call(shown ? "show" : "hide");
++        var answer = await Pet.Call(shown ? "show" : "hide");
++        if (answer is null && shown)
++        {
++            // 她已经跟着 Agent 退下了：控制台还在，就由控制台把她重新叫起来（用户 2026-11-13）
++            Pet.StartPet();
++            await Task.Delay(2500);
++            answer = await Pet.Call("show");
++        }
++        if (answer is null) { ShowHint.Text = "连不上桌宠"; Notice("连不上桌宠，等她回来再试"); }
+     }
+ 
+     private async Task SaySomething()
+
+--- 修复前/说明_先看这里.txt
++++ 修复后/说明_先看这里.txt
+@@ -20,6 +20,14 @@
+ 第一次打开（没有 settings.json）时就是：全身 / 1.5 倍（程序里的默认；这台机器上 settings.json 存的是 1.8）/ 高清 4096 / 音量 25% / 自动查更新开 /
+ 桌面实况总开关关 / 空闲 240 秒 / 哄睡和午饭提醒开。想改回“公版原来的默认”，把
+ src\FishPet\Settings.cs 里那几行改回去再 setup.ps1 重编译即可（小只 / 1.0 / 标准 / 80% / 关 / 开 / 180 / 关）。
++
++【2026-11-13 修：关掉控制台面板 ≠ 退出桌宠】
++- 以前在收起（退场动画正在播）的时候点面板右上角的叉，托盘图标随后会跟着消失，看着就像整个桌宠退了，
++  而且再也没有入口把控制台叫回来。
++- 现在：叉 / Esc 只把面板收起来，面板不退出、也不会打断她的退场动画；她收着的时候托盘图标一直留着，
++  点一下就能重新打开控制台。真要结束还是右键图标里的「退出控制台」。
++- 托盘判断“她是不是走了”也放宽了：要连续几次问不到、离开最后一次应答 6 秒以上才算，
++  收起/出场那几秒里接口慢一下不会被误判成退场。
+ 
+ 【2026-11-13 合并上游 9b2dd3b】
+ - 代码补进来：设置和羁绊原子写入、读坏留 .bad；截图/录屏浮层避让；到点先鞠躬退场再在正中出场，
+
+--- 修复前/docs/功能详解.md
++++ 修复后/docs/功能详解.md
+@@ -76,12 +76,14 @@
+ 
+ - 面板里能直接：出场/收起、调大小和体型、换衣服配饰、点表情/动作/小剧场看效果、看羁绊、开番茄钟；这些都不经过模型、不花 token。
+ - 右键小鲸鱼：出场/收起、打开面板、退出控制台（连桌宠一起退）。
++- 面板右上角的叉（或者按 Esc）只是把面板收起来，**不等于退出**：她收着的时候小鲸鱼也还留在托盘里，点一下就能再把面板打开。要真正结束用的是右键菜单里的「退出控制台」。
++- 收起动画演的途中关掉面板也不会打断她：她会照常鞠完躬淡出，在后台待命；这期间托盘和桌宠都照常在跑。
+ 
+ ## 叫她出来、收起和退出
+ 
+ - **出来**：装好、Agent 连上 MCP 后，她一般会自己出现。如果开了“启动时先收起”，叫她一声就行——“大肥鱼出来”“鲸鲸”“出来一下”。
+-- **收起**：跟她说“先退下”“回去待命”，她会鞠躬淡出；或者关掉托盘里的“在桌面上出场”开关，或右键小鲸鱼选“收起”。收起后程序还开着，叫一声就回来。
+-- **完全退出 Agent**：Agent 正常退出，她几秒内就跟着鞠躬退场；被关掉、断开的话大约 5 秒后也退（留一点时间给它重启重连）。任务栏的小鲸鱼也会跟着消失。想马上收掉：右键小鲸鱼选“退出控制台”。
++- **收起**：跟她说“先退下”“回去待命”，她会鞠躬淡出；或者关掉托盘里的“在桌面上出场”开关，或右键小鲸鱼选“收起”。收起后程序还开着，叫一声就回来。收起只关鱼、不关程序；控制台面板可以随时关，也可以随时从小鲸鱼图标再打开。
++- **完全退出 Agent**：Agent 正常退出，她几秒内就跟着鞠躬退场；被关掉、断开的话大约 5 秒后也退（留一点时间给它重启重连）。任务栏的小鲸鱼也会跟着消失。想马上收掉：右键小鲸鱼选“退出控制台”。（关掉面板、按 Esc 都不算退出。）
+ - **再回来**：下次启动 Agent、连上 MCP，她会自动出来；也可以直接运行 `bin\FishPet.exe`。
+ 
+ ## 分享给别人

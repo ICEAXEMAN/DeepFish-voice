@@ -1000,6 +1000,8 @@ internal sealed partial class PetWindow : Window
     private void GoWithAgent()
     {
         if (test || exiting) return;
+        // 正在收场（退场动画）：等她收完再决定走不走，别让动画演到一半就被打断（用户 2026-11-13）
+        if (hiding) { aloneSince = null; return; }
         // 本机改（2026-11-11）：DSH 每次工具调用可能重开一次 MCP，桥接一断就退场的话托盘小图标也会跟着消失。
         // 留一分钟缓冲：真的把 Agent 关了才会走，只是重连或者闲一会儿不算。还有程序在用网页接口时也留着。
         if ((server?.Connections ?? 0) > 0) { hadAgent = true; aloneSince = null; return; }
@@ -1820,7 +1822,7 @@ internal sealed partial class PetWindow : Window
         voice_enabled = settings.VoiceEnabled,
         voice_pack = settings.VoicePack, voice_count = voicePack?.Count ?? 0,
         tts_enabled = settings.TtsEnabled, tts_url = settings.TtsUrl, tts_speed = settings.TtsSpeed, tts_autostart = settings.TtsAutostart, tts_dir = settings.TtsDir,
-        hide_on_fullscreen = settings.HideOnFullscreen, hidden_for_fullscreen = hiddenForFullscreen && !standby, hidden = standby, start_hidden = settings.StartHidden, keep_on_screen = settings.KeepOnScreen, follow_mouse = settings.FollowMouse,
+        hide_on_fullscreen = settings.HideOnFullscreen, hidden_for_fullscreen = hiddenForFullscreen && !standby, hidden = standby, hiding, start_hidden = settings.StartHidden, keep_on_screen = settings.KeepOnScreen, follow_mouse = settings.FollowMouse,
         check_updates = settings.CheckUpdates, coax_sleep = settings.CoaxSleep, coax_lunch = settings.CoaxLunch, birthday = settings.Birthday,
         update = updates.Latest is { } found ? new { current = found.Current, latest = found.Latest, behind = found.Behind, changes = found.Changes, guide = found.Guide } : null,
         idle_seconds = settings.IdleSeconds, position = new { Left, Top }, saying = speech.IsSaying, reaction = behavior.Showing, trouble,

@@ -49,6 +49,13 @@ public partial class MainWindow : Window
 
     internal bool? Hidden { get; private set; }
 
+    // 收起/出场的余波：收场要演一两秒退场动画，这期间面板可能被关掉，托盘不能把“接口慢了一下”当成她不在了（用户 2026-11-13）
+    private DateTime busyUntil = DateTime.MinValue;
+    internal bool Busy => DateTime.UtcNow < busyUntil;
+
+    // 只有 App.Quit() 真要关窗口时才放行；右上角的叉、Esc、Alt+F4 都只是把面板收回托盘（用户 2026-11-13）
+    internal bool AllowClose { get; set; }
+
     private sealed record Seg(RadioButton[] Buttons);
 
     // 面板自己记住的：哪几块展开着、常用的按钮、有没有固定在最前面、“更多设置”开没开（ui.json，放在控制台文件夹里）
@@ -116,6 +123,8 @@ public partial class MainWindow : Window
 
         ShowSwitch.Click += async (_, _) => await SetShown(ShowSwitch.IsChecked == true);
         CloseButton.Click += (_, _) => Hide();
+        // 右上角的叉、Esc、Alt+F4、系统把它关掉：都只把面板收回托盘，控制台不退出，桌宠更不会跟着退（用户 2026-11-13）
+        Closing += (_, e) => { if (!AllowClose) { e.Cancel = true; Hide(); } };
         PinButton.Click += (_, _) => { ui.Pin = PinButton.IsChecked == true; Topmost = ui.Pin; ui.Save(); Notice(ui.Pin ? "已固定在最前面" : "取消固定"); };
         MoreToggle.Click += (_, _) => { ui.More = MoreToggle.IsChecked == true; MorePanel.Visibility = ui.More ? Visibility.Visible : Visibility.Collapsed; ui.Save(); };
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) { moved = true; try { DragMove(); } catch { } } };
@@ -499,8 +508,18 @@ public partial class MainWindow : Window
     private async Task SetShown(bool shown)
     {
         Touch("show");
+        // 收起后她要鞠一躬再淡出（约两秒）：这段时间面板被关掉也不能影响她，托盘也别急着判断她不在了（用户 2026-11-13）
+        busyUntil = DateTime.UtcNow.AddSeconds(shown ? 6 : 15);
         ShowHint.Text = shown ? "她来了" : "收起中…";
-        await Pet.Call(shown ? "show" : "hide");
+        var answer = await Pet.Call(shown ? "show" : "hide");
+        if (answer is null && shown)
+        {
+            // 她已经跟着 Agent 退下了：控制台还在，就由控制台把她重新叫起来（用户 2026-11-13）
+            Pet.StartPet();
+            await Task.Delay(2500);
+            answer = await Pet.Call("show");
+        }
+        if (answer is null) { ShowHint.Text = "连不上桌宠"; Notice("连不上桌宠，等她回来再试"); }
     }
 
     private async Task SaySomething()
