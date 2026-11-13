@@ -37,7 +37,7 @@ public partial class MainWindow : Window
 
     // 表情 / 动作 / 小剧场：每一块是一个可展开收起的区域，里面按小类摆着按钮
     private sealed class GroupView { public Group Group = null!; public StackPanel Box = null!; public List<(Item Item, FrameworkElement Chip)> Chips = []; }
-    private sealed class SectionView { public Section Section = null!; public ToggleButton Head = null!; public StackPanel Body = null!; public List<GroupView> Groups = []; }
+    private sealed class SectionView { public Section Section = null!; public ToggleButton Head = null!; public StackPanel Body = null!; public FrameworkElement Row = null!; public List<GroupView> Groups = []; }
     private readonly List<SectionView> sections = [];
     private readonly Dictionary<string, Item> items = new();
     // 开关式的按钮（脸红、加载……）：和桌宠 get_state 里的 overlays / raw 对着显示开没开
@@ -574,7 +574,28 @@ public partial class MainWindow : Window
         {
             var view = new SectionView { Section = section };
             bool open = ui.Open.Contains(section.Key);
-            view.Head = new ToggleButton { Content = section.Title, Tag = section.Count + " 个", IsChecked = open, Style = (Style)FindResource("FoldRow"), Margin = new Thickness(0, 0, 0, 8) };
+            view.Head = new ToggleButton { Content = section.Title, Tag = section.Count + " 个", IsChecked = open, Style = (Style)FindResource("FoldRow") };
+            // 标题行外面再包一层：「表情」这块在标题旁边多一个「恢复默认」，点完演示不用滚到底下找「恢复平常」（用户 2026-11-13 要的）
+            var headRow = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            headRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            headRow.Children.Add(view.Head);
+            if (section.Key == "expr")
+            {
+                var reset = new Button
+                {
+                    Content = "恢复默认",
+                    Height = 30,
+                    Margin = new Thickness(8, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Style = (Style)FindResource("ChipButton"),
+                    ToolTip = "脸上、眼睛、眉毛、嘴和原版表情都收回平常的样子（和下面的「恢复平常」一样）",
+                };
+                reset.Click += async (_, _) => await ResetAll();
+                Grid.SetColumn(reset, 1);
+                headRow.Children.Add(reset);
+            }
+            view.Row = headRow;
             view.Body = new StackPanel { Visibility = open ? Visibility.Visible : Visibility.Collapsed, Margin = new Thickness(0, 0, 0, 4) };
             var card = new Border { Background = (Brush)FindResource("CardBrush"), BorderBrush = (Brush)FindResource("CardLineBrush"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 12, 16, 6), Margin = new Thickness(0, 0, 0, 8) };
             var inner = new StackPanel();
@@ -597,7 +618,7 @@ public partial class MainWindow : Window
             }
             card.Child = inner; view.Body.Children.Add(card);
             view.Head.Click += (_, _) => Fold(view);
-            SectionsHost.Children.Add(view.Head); SectionsHost.Children.Add(view.Body);
+            SectionsHost.Children.Add(headRow); SectionsHost.Children.Add(view.Body);
             sections.Add(view);
         }
         RebuildFavs();
@@ -773,7 +794,7 @@ public partial class MainWindow : Window
                 group.Box.Visibility = groupMatch ? Visibility.Visible : Visibility.Collapsed;
                 sectionMatch |= groupMatch;
             }
-            view.Head.Visibility = !searching || sectionMatch ? Visibility.Visible : Visibility.Collapsed;
+            view.Row.Visibility = !searching || sectionMatch ? Visibility.Visible : Visibility.Collapsed;
             view.Head.IsChecked = searching ? sectionMatch : ui.Open.Contains(view.Section.Key); // 搜索时箭头也朝下，退出搜索回到原来展开的样子
             view.Body.Visibility = view.Head.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             any |= sectionMatch;
