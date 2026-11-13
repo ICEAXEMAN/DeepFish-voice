@@ -11,6 +11,7 @@
     <Compile Include="../FishPet/Body.cs" Link="Body.cs" />
     <Compile Include="../FishPet/Dance.cs" Link="Dance.cs" />
     <Compile Include="../FishPet/Tempo.cs" Link="Tempo.cs" />
+    <Compile Include="../FishPet/Beat.cs" Link="Beat.cs" />
     <Compile Include="../FishPet/Updates.cs" Link="Updates.cs" />
     <Compile Include="../FishPet/Mutter.cs" Link="Mutter.cs" />
     <Compile Include="../FishPet/Model.cs" Link="Model.cs" />
@@ -20,5 +21,6 @@
     <Compile Include="../FishPet/Memory.cs" Link="Memory.cs" />
     <Compile Include="../FishPet/MemoryView.cs" Link="MemoryView.cs" />
     <Compile Include="../FishPet/Alarms.cs" Link="Alarms.cs" />
+    <Compile Include="../FishPet/Japanese.cs" Link="Japanese.cs" />
   </ItemGroup>
 </Project>

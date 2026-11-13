@@ -11,6 +11,14 @@
     <RootNamespace>FishTray</RootNamespace>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ApplicationIcon>Assets/logo.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- 2026-11-13：手绘蜡笔贴纸 logo（面板/窗口/任务栏/托盘都用它），嵌在程序里 -->
+  <ItemGroup>
+    <Resource Include="Assets/logo.png" />
+    <Resource Include="Assets/logo.ico" />
+    <Resource Include="Assets/tray.ico" />
+  </ItemGroup>
 
 </Project>

@@ -21,26 +21,51 @@ internal sealed partial class Updates(string root, Action<string> log)
     private string? told;
     internal Found? Latest { get; set; }
 
-    internal async Task Check()
+    // 一次检查的结果，给「检查更新」按钮用（用户 2026-11-12 要的）：最新 / 落后几个提交 / 查不了。
+    internal sealed record Checked(string State, int Behind, string[] Changes, string? Error, DateTime At);
+    internal Checked? LastCheck { get; private set; }
+
+    internal async Task<Checked> Check()
     {
+        var at = DateTime.UtcNow;
         try
         {
-            if (Here() is not { } here) return;
+            if (Here() is not { } here)
+            {
+                LastCheck = new Checked("nogit", 0, [], "这一份不是用 git 拉下来的，没法跟 GitHub 比", at);
+                return LastCheck;
+            }
             using var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.github.com/repos/{here.Repository}/compare/{here.Commit}...{here.Branch}");
             request.Headers.UserAgent.ParseAdd("FishPet");
             request.Headers.Accept.ParseAdd("application/vnd.github+json");
             using var response = await Http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) { log("查更新：GitHub 回了 " + (int)response.StatusCode); return; }
+            if (!response.IsSuccessStatusCode)
+            {
+                log("查更新：GitHub 回了 " + (int)response.StatusCode);
+                LastCheck = new Checked("failed", 0, [], "GitHub 回了 " + (int)response.StatusCode, at);
+                return LastCheck;
+            }
             using var answer = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             int behind = answer.RootElement.GetProperty("ahead_by").GetInt32();
-            if (behind == 0) { Latest = null; return; }
+            if (behind == 0)
+            {
+                Latest = null;
+                LastCheck = new Checked("latest", 0, [], null, at);
+                return LastCheck;
+            }
             var commits = answer.RootElement.GetProperty("commits").EnumerateArray().ToArray();
             var changes = Enumerable.Reverse(commits).Take(10).Select(commit => commit.GetProperty("commit").GetProperty("message").GetString()!.Split('\n')[0].Trim())
                 .Select(line => line.Length > 60 ? line[..60] + "…" : line).ToArray();
             Latest = new Found(here.Commit[..7], commits[^1].GetProperty("sha").GetString()![..7], behind, changes, TouchesGuide(answer.RootElement));
+            LastCheck = new Checked("behind", behind, changes, null, at);
+            return LastCheck;
         }
         catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or IOException or KeyNotFoundException or InvalidOperationException)
-        { log("查更新没查成：" + error.Message); }
+        {
+            log("查更新没查成：" + error.Message);
+            LastCheck = new Checked("failed", 0, [], error.Message, at);
+            return LastCheck;
+        }
     }
 
     // Whether the changes include the body guide (GitHub's compare lists the files changed).

@@ -105,7 +105,7 @@ internal sealed class HttpApi : IDisposable
             if (method == "POST" && path.StartsWith("/call/"))
             {
                 var name = Uri.UnescapeDataString(path["/call/".Length..]);
-                if (name != "panel" && name != "event" && !ToolNames().Contains(name)) { await Write(stream, 404, new { error = "没有这个工具：" + name }); return; }
+                if (name is not ("panel" or "event" or "check_update") && !ToolNames().Contains(name)) { await Write(stream, 404, new { error = "没有这个工具：" + name }); return; }
                 var arguments = body.Length == 0 ? Empty() : JsonDocument.Parse(body).RootElement.Clone();
                 await Write(stream, 200, await execute(name, arguments, timeout.Token));
                 return;

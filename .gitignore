@@ -1,37 +1,66 @@
-# 各人自己下载的东西
+# 各人自己下载的东西，不随插件分享
 sdk/*
 !sdk/下载SDK.md
 model/*
 !model/获取模型.md
 
-# 本机编译和运行产物
+# 本机编译和运行出来的东西
+renderer/build/
+bin/
 src/**/bin/
 src/**/obj/
 tray/**/bin/
 tray/**/obj/
+tray/app/
 cache/
 check/
 settings.json
-api.json
 errors.log
+api.json
 *.old
 *.tmp
 
-# 本机个人状态
+# 每个人自己的大肥鱼：亲密度、记忆小本本（都只存在本机，绝不上传）
 affection.json
+context_chat.json
 memory.json
 memory-archive.json
-memory.md
-memory-log.jsonl
+
+# 托盘控制台自己记的
 tray/config.json
 tray/ui.json
+tray/icon-paths.json
+tray/context-ui.json
+
+# hook 的本机记录
 hooks/**/hook.log
 hooks/**/sessions.json
+
+# 各人 Agent 在这个文件夹里的配置（里面有本机路径）
 .codex/
 .cursor/
 .claude/
 
-# 本机停用项和检查记录
+# 语音包：本机生成的 389 条录音，体积大，不进仓库
+voice/
+
+# 本机的记忆视图和变更记录、开发用录制和草稿（里面有用户自己的事或本机路径）
+memory.md
+memory-log.jsonl
+record/
+dev/
+
+# 第二套语音包、本机停用项和本机检查记录，不进仓库
+voice_g3/
 _停用启动项/
 保存清单_*.txt
 插件部署检查.txt
+# 备份/中间产物（2026-11-13 整理时加的）
+renderer/build-cache-bak-*/
+__pycache__/
+tray/tray.log
+*.old
+
+# 渲染器的编译中间产物（只留 Release 里的成品）
+renderer/build/*
+!renderer/build/Release/

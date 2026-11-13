@@ -51,7 +51,16 @@ internal sealed partial class PetWindow : Window
     private bool standby, ready, hiding, coaxWoke, restarting;
     private int hideToken;
     private DateTime nextFullscreenLook;
+    // 本机加（2026-11-11）：她的置顶偶尔会被人从外面撤掉（别的“总在最前”的程序、系统切全屏之类），
+    // 普通窗口就压到她头上了。每秒看一次，掉了补回来；她被点、被摸、被拖时也抬到置顶层最上面
+    // （WS_EX_NOACTIVATE 的窗口点了不会自己浮上来）。
+    private DateTime nextTopmostLook;
+    private DateTime topmostLostLogged;
+    // 本机加（2026-11-11，2026-11-13 从合并前的备份挪回来）：上面那个“每秒看一次标记”不够。实测她可以在
+    // 置顶标记还挂着的时候就被排到普通窗口（Edge、Claude）后面，那时只有真的再调一次“置顶”才会跳回最上层。
+    // 所以每隔 0.7 秒看一眼 Z 序，谁压着她就把她和气泡一起抬上去。
     private DateTime nextRaise;
+    private DateTime coveredLogged;
     private Player? player;
     // 哄睡演示（coax）：记住她原来的位置和大小，好归位。
     private double? coaxLeft, coaxTop;
@@ -83,6 +92,10 @@ internal sealed partial class PetWindow : Window
     private NativePoint lastCursor;
     private DateTime lastCursorAt = DateTime.UtcNow;
     private bool mouseIdle;
+    // 鼠标停住后视线回正：0 没在回、1 眼睛在回（头还没动）、2 头也在回。头比眼睛晚 HeadReturnDelay 秒开始，转得慢（速率越小越慢，平时是 10）。
+    private int returnStage;
+    private DateTime returnAt;
+    private const double HeadReturnDelay = .5, HeadReturnRate = 1.6, EyeReturnRate = 5;
     private Rect open;
 
     // Her lines: one at a time, in order; a line of nothing but 〔〕 plays with no bubble.
@@ -244,6 +257,7 @@ internal sealed partial class PetWindow : Window
         started.Ready += Ready;
         started.Failed += message => Trouble("渲染出问题了：" + message);
         player = started;
+        danceSent.Clear(); // 新渲染器不知道上一轮按住过什么，跳舞的参数要重新发一遍（PetWindow.Dance.cs）
         lastLeft = Left; lastTop = Top;
         var dpi = VisualTreeHelper.GetDpi(this);
         var scale = dpi.DpiScaleX * Recorder.Boost; // 宽高用同一系数，保证渲染画面比例始终与窗口一致（不会变形）；录制 supersample 时按几倍出图
@@ -281,6 +295,7 @@ internal sealed partial class PetWindow : Window
         image.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));
         behavior.Show("问候", DateTime.UtcNow);
         body.Apply("抚胸");
+        WelcomeSoon(); // 新装第一次出场：自己说一段欢迎（Welcome.cs）
     }
 
     private void ApplySize()
@@ -468,10 +483,13 @@ internal sealed partial class PetWindow : Window
         if (hiding) { hiding = false; image.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(200))); }
         if (!standby) return false;
         standby = false;
+        StartMusic(); // 出来了才开始听歌（收着的时候不白开采集进程）。要在 standby 落下之后：StartMusic 自己会看 standby
         nextFullscreenLook = default;
         if (player is { } current) UpdateFullscreen(current);
+        RaiseAboveAll(); // 从收起里出来：窗口离开的这段时间可能已经被别的窗口压住了，先回到最上层
         if (ready) image.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));
         if (greet) { behavior.Show("问候", DateTime.UtcNow); body.Apply("抚胸"); }
+        WelcomeSoon(); // 新装、而且一开就收着：被叫出来的第一次也说欢迎（Welcome.cs）
         return true;
     }
 
@@ -493,6 +511,7 @@ internal sealed partial class PetWindow : Window
         hiding = false; standby = true;
         nextFullscreenLook = default;
         mutterSpeech.Stop();
+        StopMusic(); // 收进待命就别再听了，省一个常驻的采集进程
     }
 
     // 演示全部待机小动作（临时给用户看）。
@@ -755,7 +774,7 @@ internal sealed partial class PetWindow : Window
             // 小剧场有录音的句子按录音长度接下一句，只留 0.45 秒气口；没录音 / 纯动作才用脚本里的停留秒数。
             var wait = said.Length > 0 && voiceSeconds != null
                 ? Math.Max(0.9, voiceSeconds.Value + 0.45)
-                : step.Seconds;
+                : Math.Max(step.Seconds, said.Length * 0.12 + 0.3); // 没录音时按字数留足气泡出完的时间（上游 2026-11-12）
             await Task.Delay(TimeSpan.FromSeconds(wait));
             if (token != mutterToken || exiting) return; // 被说话打断了，收尾已经做过
         }
@@ -792,6 +811,7 @@ internal sealed partial class PetWindow : Window
         await Task.Delay(140);
         mid?.Invoke();
         Left = left; Top = top;
+        RaiseAboveAll(); // 换位/出场后先回到最上层（哄睡把她摆到屏幕正中时，正好压在别的窗口上）
         image.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)));
     }
 
@@ -808,6 +828,8 @@ internal sealed partial class PetWindow : Window
         double right = work.Right < monitor.Right ? Math.Clamp(work.Right - window.Left, left, window.Width) : window.Width;
         double bottom = work.Bottom < monitor.Bottom ? Math.Clamp(work.Bottom - window.Top, top, window.Height) : window.Height;
         var uncovered = new Rect(left, top, right - left, bottom - top);
+        // 本机改（2026-11-12）：按住左键拖动时不挡，全身盖过任务栏好看全貌；放手后再躲回任务栏后面。
+        if (dragging && dragged) uncovered = new Rect(0, 0, Width, Height);
         if (uncovered == open) return;
         open = uncovered;
         image.Clip = uncovered == new Rect(0, 0, Width, Height) ? null : new RectangleGeometry(uncovered);
@@ -841,19 +863,28 @@ internal sealed partial class PetWindow : Window
             UpdateFullscreen(current);
         }
         if (hiddenForFullscreen) return;
-        // 别的程序的置顶窗口跑到她上面时，把她和气泡重新放回最上面（见 ZOrder.cs）。
-        if (!test && IsVisible && DateTime.UtcNow >= nextRaise)
+        // 别的程序的窗口（包括刚被点到的普通窗口）跑到她上面时，把她和气泡重新放回最上面（见 ZOrder.cs）：
+        // WPF 的 Topmost 只在设置那一刻生效，标记还挂着、人却已经在后面了，只看标记的 KeepTopmost 发现不了。
+        if (!test && !standby && IsVisible && DateTime.UtcNow >= nextRaise)
         {
             nextRaise = DateTime.UtcNow.AddMilliseconds(700);
             var me = new WindowInteropHelper(this).Handle;
             if (ZOrder.CoveredByOthers(me))
             {
-                ZOrder.Raise(me);
+                RaiseAboveAll(me);
                 bubble.Raise(); mutter.Raise(); handWindow?.Raise();
+                if (DateTime.UtcNow - coveredLogged > TimeSpan.FromMinutes(1))
+                {
+                    coveredLogged = DateTime.UtcNow;
+                    Places.Log("有窗口压在她上面，已经把她重新置顶" + Above(me));
+                }
             }
         }
+        KeepTopmost();
         // Moving the window pushes her body; physics carries that into her hair, skirt and tail.
-        double swayX = (Left - lastLeft) * 30, swayY = (Top - lastTop) * 30;
+        // 拖动时按抓点压低这个整体平移：抓点那一头才贴在手上（用户 2026-11-12）
+        double swayScale = dragging ? GrabbedSway : 1;
+        double swayX = (Left - lastLeft) * 30 * swayScale, swayY = (Top - lastTop) * 30 * swayScale;
         lastLeft = Left; lastTop = Top;
         if (swayX != 0 || swayY != 0) current.Send(FormattableString.Invariant($"sway {swayX:0} {swayY:0}"));
         UpdateCut();
@@ -893,6 +924,33 @@ internal sealed partial class PetWindow : Window
         {
             mouseIdle = true; // 鼠标停在同一处超过 5 秒，暂时关掉视线跟随
         }
+        // 鼠标停住以后的回正（用户 2026-11-12 要的：更慢更自然，眼睛先回正，头再跟着）：先让眼睛回到正中（渲染器里眼睛有自己的目标和速度），
+        // 隔一小会儿再让头慢慢转回来。别的原因的回正（关了跟随、摸头、小剧场）还是原来那样一下回去。
+        bool slowReturn = settings.FollowMouse && mouseIdle && !test && !stroking && !(settings.SkitPausesFollow && SkitOn);
+        if (slowReturn)
+        {
+            if (returnStage == 0 && (lookX is 9 || (lookX == 0 && lookY == 0))) return; // 本来就是正的
+            var at = DateTime.UtcNow;
+            if (returnStage == 0)
+            {
+                returnStage = 1; returnAt = at;
+                current.Send(FormattableString.Invariant($"lookrate {HeadReturnRate} {EyeReturnRate}"));
+                current.Send(FormattableString.Invariant($"look {lookX:0.00} {lookY:0.00} 0 0")); // 眼睛先回正，头先不动
+            }
+            else if (returnStage == 1 && (at - returnAt).TotalSeconds >= HeadReturnDelay)
+            {
+                returnStage = 2; lookX = lookY = 0;
+                current.Send("look 0 0 0 0"); // 头再慢慢转回来
+            }
+            return;
+        }
+        if (returnStage != 0)
+        {
+            // 回正做到一半鼠标又动了（或者别的原因打断）：快慢还原，让下面重新发一次目标（眼睛重新跟着头）
+            returnStage = 0;
+            current.Send("lookrate 10 10");
+            lookX = lookY = 9;
+        }
         if (!settings.FollowMouse || mouseIdle || test || stroking || (settings.SkitPausesFollow && SkitOn))
         {
             if (lookX == 0 && lookY == 0) return;
@@ -911,7 +969,9 @@ internal sealed partial class PetWindow : Window
     // She comes and goes with the agent (the owner, 2026-11-03: the agent closed, she was still there). Once an agent
     // has been connected, she bows out after a while with none, long enough for one that reconnects or restarts its
     // servers. A program on the HTTP interface keeps her while it uses her; started by hand with no agent, she stays.
-    private static readonly TimeSpan AloneFor = TimeSpan.FromSeconds(5), HttpUse = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan AloneFor = TimeSpan.FromSeconds(5), HttpUse = TimeSpan.FromSeconds(15); // 本机改（2026-11-12）：最后一个 Agent 一退出就走，缓冲从 1 分钟缩到 5 秒，只够 Agent 重启 MCP 重连
+    // 桥接正常关掉时（Agent 自己退了）会先说一声再见：那就不用等满一分钟，几秒就跟着退（用户 2026-11-12 要的）。
+    private static readonly TimeSpan FarewellFor = TimeSpan.FromSeconds(3), FarewellFresh = TimeSpan.FromSeconds(20);
     private bool hadAgent;
     private int agentsBefore;
     private DateTime? aloneSince;
@@ -920,11 +980,16 @@ internal sealed partial class PetWindow : Window
     private void GoWithAgent()
     {
         if (test || exiting) return;
+        // 本机改（2026-11-11）：DSH 每次工具调用可能重开一次 MCP，桥接一断就退场的话托盘小图标也会跟着消失。
+        // 留一分钟缓冲：真的把 Agent 关了才会走，只是重连或者闲一会儿不算。还有程序在用网页接口时也留着。
         if ((server?.Connections ?? 0) > 0) { hadAgent = true; aloneSince = null; return; }
-        if (!hadAgent || DateTime.UtcNow - lastHttp < HttpUse) { aloneSince = null; return; }
+        if (!hadAgent) return; // 手动打开、没接过 Agent 的，一直留着
+        if (DateTime.UtcNow - lastHttp < HttpUse) { aloneSince = null; return; }
+        // 刚说过再见的（20 秒内）：等 3 秒就走，不用等满一分钟
+        bool goodbye = server?.FarewellAt is { } said && DateTime.UtcNow - said < FarewellFresh;
         aloneSince ??= DateTime.UtcNow;
-        if (DateTime.UtcNow - aloneSince < AloneFor) return;
-        Places.Log("接她的 Agent 都断开了，她先退下");
+        if (DateTime.UtcNow - aloneSince < (goodbye ? FarewellFor : AloneFor)) return;
+        Places.Log(goodbye ? "Agent 正常退出了，她跟着退下" : "接她的 Agent 都断开了，她先退下");
         Close();
     }
 
@@ -942,12 +1007,52 @@ internal sealed partial class PetWindow : Window
         Topmost = false; Topmost = true;
     }
 
+    // 置顶标记可能在她不知情的时候被拿走（别的“总在最前”工具、系统切全屏、换显示器），
+    // 一旦没了，普通窗口就能一直压着她。每秒看一眼，掉了就补回来（补过写一行日志，最多每分钟一行）。
+    private void KeepTopmost()
+    {
+        if (test || standby || !IsVisible || exiting) return;
+        if (DateTime.UtcNow < nextTopmostLook) return;
+        nextTopmostLook = DateTime.UtcNow.AddSeconds(1);
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == 0 || ((long)GetWindowLongPtr(handle, -20) & 0x8) != 0) return;
+        RaiseAboveAll(handle);
+        if (DateTime.UtcNow - topmostLostLogged > TimeSpan.FromMinutes(1))
+        {
+            topmostLostLogged = DateTime.UtcNow;
+            Places.Log("窗口的置顶被去掉了（别的程序或系统），已经重新置顶" + Above(handle));
+        }
+    }
+
+    // 丢置顶的时候，压在她上面的是哪个程序（只写日志，好查出是谁撤的）。
+    private static string Above(nint handle)
+    {
+        var above = GetWindow(handle, 3); // GW_HWNDPREV
+        if (above == 0) return "";
+        GetWindowThreadProcessId(above, out uint id);
+        try { return "；刚才压在上面的是 " + Process.GetProcessById((int)id).ProcessName; }
+        catch { return ""; }
+    }
+
+    // 她从不抢焦点（WS_EX_NOACTIVATE），点了也不会像普通窗口那样自己浮上来；置顶的一群窗口里又是最后点到的在最上面。
+    // 所以用户碰她的时候，手动把她抬到置顶层的最前面。
+    private void RaiseAboveAll()
+    {
+        if (test || standby || !IsVisible || exiting) return;
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != 0) RaiseAboveAll(handle);
+    }
+
+    private static void RaiseAboveAll(nint handle) =>
+        SetWindowPos(handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+
     // ---- The user's hands on her ----
 
     private void Down(object sender, MouseButtonEventArgs e)
     {
         if (exiting || e.ChangedButton != MouseButton.Left) return;
         e.Handled = true;
+        RaiseAboveAll();
         dragging = true; dragged = false;
         GetCursorPos(out var p);
         dragStart = new Point(p.X, p.Y);
@@ -1045,6 +1150,7 @@ internal sealed partial class PetWindow : Window
 
     private void Dropped()
     {
+        TouchDragEnded();
         Clamp();
         SavePlace();
         BondSeen();
@@ -1405,6 +1511,10 @@ internal sealed partial class PetWindow : Window
                 return Tools.Text(new { wearing = Wearing() });
             case "get_state":
                 return Tools.Text(State());
+            // 托盘底部的「检查更新」按钮走这里（用户 2026-11-12 要的）：不进 MCP 工具表，只给本机控制台用。
+            case "check_update":
+                var checkedNow = await updates.Check();
+                return Tools.Text(new { state = checkedNow.State, behind = checkedNow.Behind, changes = checkedNow.Changes, error = checkedNow.Error });
             case "update_settings":
                 if (args.TryGetProperty("fps", out var fps) && fps.TryGetInt32(out var rate))
                 {
@@ -1505,6 +1615,9 @@ internal sealed partial class PetWindow : Window
                     if (!settings.MusicDance) StopMusic();
                     else if (music == null) StartMusic();
                 }
+                // 桌面实况（本机加，2026-11-12）：总开关，DSH 那边的 dafeiyu-context 插件每十几秒读一次。
+                if (args.TryGetProperty("context_chat", out var contextChat) && contextChat.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    settings.ContextChat = contextChat.GetBoolean();
                 if (args.TryGetProperty("idle_seconds", out var idle) && idle.TryGetInt32(out var seconds)) settings.IdleSeconds = Math.Clamp(seconds, 15, 600);
                 bool texChanged = false;
                 if (args.TryGetProperty("tex_scale", out var texScale) && texScale.TryGetDouble(out var tex))
@@ -1528,6 +1641,7 @@ internal sealed partial class PetWindow : Window
             case "show":
                 coaxWoke = false;
                 bool came = Wake(greet: true);
+                if (!came) RaiseAboveAll(); // 已经在场：把压在她上面的置顶窗口让开
                 return Tools.Text(new { hidden = false, came });
             case "hide":
                 _ = HideAway();
@@ -1688,6 +1802,7 @@ internal sealed partial class PetWindow : Window
         idle_seconds = settings.IdleSeconds, position = new { Left, Top }, saying = speech.IsSaying, reaction = behavior.Showing, trouble,
         // 跟着音乐跳（本机加，2026-11-10）：开关和这会儿跳没跳。
         music_dance = settings.MusicDance, music_apps = settings.MusicApps, dancing = Dancing,
+        context_chat = settings.ContextChat, // 桌面实况总开关（本机加，2026-11-12）：DSH 的插件读它决定要不要看她前台、要不要搭话
         clothes = Outfit.Clothes.Select(item => item.Label).ToArray(), accessories = Outfit.Accessories.Select(item => item.Label).ToArray(),
         overlays = body.Overlays.Except(poseOverlays).ToArray(), raw = panelRaw.ToArray(), hand = body.HandUp, // 托盘控制台用：脸上开着哪些表情、原版表情、手举着没有
         affection = AffectionState(), focus = FocusState(), memory = MemoryState(), // 亲密度、番茄钟、记忆条数（本机加，2026-11-08）
@@ -1716,14 +1831,13 @@ internal sealed partial class PetWindow : Window
     private static extern nint GetWindowLongPtr(nint hwnd, int index);
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     private static extern nint SetWindowLongPtr(nint hwnd, int index, nint value);
+    // 重新置顶（本机加，2026-11-11）：不改位置大小、不抢焦点，只把窗口放回置顶层的最上面。
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int width, int height, uint flags);
+    private static readonly nint HwndTopmost = -1;
+    private const uint SwpNoMove = 0x0001, SwpNoSize = 0x0002, SwpNoActivate = 0x0010, SwpNoOwnerZOrder = 0x0200;
+    [DllImport("user32.dll")] private static extern nint GetWindow(nint hwnd, uint command);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(nint hwnd, out uint process);
+    // 摸头的手要更高帧（本机加，2026-11-11）：把计时精度提到 1ms，关闭时恢复
     [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint period);
 }
-
-
-
-
-
-
-
-
-

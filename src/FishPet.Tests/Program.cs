@@ -13,6 +13,8 @@ VerifyMemory();
 VerifyMemoryView();
 VerifyAlarms();
 VerifyDance();
+VerifyBeatTracker();
+VerifyJapanese();
 Console.WriteLine($"FishPet: {checks} checks passed.");
 
 // 待机自言自语：模型现编的「话|动作|道具」怎么解析，数据文件里的动作词她都做得出来，抽选能抽到小剧场。
@@ -56,12 +58,17 @@ void VerifyIdleSelfTalk()
     // Left alone for long enough she picks every kind: a move, a line, a little play.
     var sent = new List<string>(); var texts = new List<string>(); var plays = new List<string>(); var moves = new List<string>();
     var start = new DateTime(2026, 11, 5, 4, 0, 0, DateTimeKind.Utc);
-    var live2d = new Behavior(sent.Add, () => [], new Random(7))
+    var tickNow = start;
+    Behavior? live2d = null;
+    live2d = new Behavior(sent.Add, () => [], new Random(7))
     {
-        TextIdleMoods = ["甲", "乙"], TextIdle = texts.Add, SkitIdleMoods = ["戏一", "戏二"], SkitIdle = plays.Add, IdleStarted = moves.Add,
+        TextIdleMoods = ["甲", "乙"], TextIdle = texts.Add, SkitIdleMoods = ["戏一", "戏二"],
+        // 真实运行时 PetWindow 会在开演前调用 SkitPlayed；测试里也补上，否则 12 分钟优先规则会一直抢。
+        SkitIdle = name => { plays.Add(name); live2d!.SkitPlayed(tickNow); },
+        IdleStarted = moves.Add,
     };
     live2d.Resume(start, 40);
-    for (int i = 1; i <= 400; i++) live2d.Tick(start.AddSeconds(i * 41), false, 40);
+    for (int i = 1; i <= 400; i++) { tickNow = start.AddSeconds(i * 41); live2d.Tick(tickNow, false, 40); }
     Check(texts.Count > 0 && plays.Count > 0 && moves.Count > 0, "she picks a line, a little play and a move");
     Check(plays.Distinct().Count() == 2 && texts.Distinct().Count() == 2, "every one of them comes up");
     // 三类平分：各占约三分之一（400 次里允许 8% 的随机偏差）。
@@ -360,6 +367,7 @@ void VerifyLive2DBehavior()
     var levels = Behavior.VoiceLevels(wav.ToArray(), milliseconds)!;
     Check(levels.Length == 10 && levels[1] == 0 && levels[8] > .9, "her mouth follows the loudness of the recording");
     Check(Behavior.VoiceLevels(new byte[100], milliseconds) == null, "anything but a wav is left alone");
+
 
     // Her own body language (the owner reviewed it, 2026-11-02): words in 〔〕, each a hand-tuned piece, stacked
     // by the rules learned on this model, and her words waiting for what her body does.
@@ -902,4 +910,167 @@ void VerifyDance()
         if (index % 7 == 3) bumpy.Beat(when.AddSeconds(t + .13)); // 偶尔一拍里多触发一次
     }
     Check(Math.Abs(bumpy.Bpm - 120) < 8, $"漏拍、多拍也不跑偏（估成 {bumpy.Bpm:0}）");
+}
+
+
+// 节拍追踪：喂一串假的低音起音（20 帧/秒，每帧是前 50ms 的起音和），看它估的速度、相位对不对、稳不稳。
+void VerifyBeatTracker()
+{
+    // 造一条起音：beats 是真实拍点（秒），每个拍点把强度落进它所在的那一帧；offbeat 是拍子中间较弱的一下；noise 是底噪。
+    // 返回追踪器、以及把整首歌喂完以后在 checkAt 时刻的拍点预测。
+    (BeatTracker Tracker, Func<double, double> Truth) Run(double bpm, double phase, double seconds, double offbeat, double noise, int seed, Func<int, bool>? skip = null, BeatTracker? reuse = null, double startAt = 0)
+    {
+        var tracker = reuse ?? new BeatTracker();
+        var random = new Random(seed);
+        double period = 60 / bpm;
+        var frames = new Dictionary<int, double>();
+        int count = 0;
+        for (double b = phase; b < startAt + seconds; b += period, count++)
+        {
+            if (b < startAt || (skip?.Invoke(count) ?? false)) continue;
+            int frame = (int)Math.Ceiling(b / .05);
+            frames[frame] = frames.GetValueOrDefault(frame) + 1;
+            if (offbeat > 0)
+            {
+                int half = (int)Math.Ceiling((b + period / 2) / .05);
+                frames[half] = frames.GetValueOrDefault(half) + offbeat;
+            }
+        }
+        for (int frame = (int)Math.Ceiling(startAt / .05); frame * .05 < startAt + seconds; frame++)
+        {
+            double jitter = (random.NextDouble() - .5) * .006; // 进程管道的到达时间有几毫秒晃动
+            tracker.Add(frame * .05 + jitter, (frames.GetValueOrDefault(frame) + noise * random.NextDouble()) * .08);
+        }
+        // 真实拍点：落在 phase + k * period
+        return (tracker, _ => 0);
+    }
+    // 追踪器在某一刻预测的「最近一个拍点」离真实拍点差多少秒（取绝对值，最大半拍）。
+    double PhaseError(BeatTracker tracker, double at, double bpm, double phase)
+    {
+        double period = 60 / bpm;
+        double position = tracker.Position(at);
+        double predicted = at - (position - Math.Round(position)) * tracker.Period; // 追踪器认为的最近一个拍点
+        double error = (predicted - phase) % period;
+        if (error > period / 2) error -= period;
+        if (error < -period / 2) error += period;
+        return Math.Abs(error);
+    }
+
+    foreach (var bpm in new[] { 74.0, 90, 120, 146, 172 })
+    {
+        var (tracker, _) = Run(bpm, .21, 30, offbeat: .25, noise: .15, seed: (int)bpm);
+        Check(tracker.Locked, $"{bpm} BPM：30 秒内锁得住");
+        double estimated = tracker.Bpm;
+        // 速度：容许差 3%，也容许落在 2 倍、1/2 倍上（同一首歌的另一种数法），舞步靠相位，不靠这个
+        bool octave = Math.Abs(estimated / bpm - 1) < .03 || Math.Abs(estimated / (bpm * 2) - 1) < .03 || Math.Abs(estimated / (bpm / 2) - 1) < .03;
+        Check(octave, $"{bpm} BPM 认得出（估成 {estimated:0.0}）");
+        double error = PhaseError(tracker, 29.9, bpm, .21);
+        // 相位：采集那一帧是 50ms 平均，所以真实拍点附近 ±50ms 都算对上；对不上就是差半拍，会差得很远
+        Check(error < .06, $"{bpm} BPM 相位对得上（差 {error * 1000:0} ms）");
+    }
+
+    // 漏拍：每五拍漏掉一个，速度和相位都不该跑。
+    var missing = Run(120, .3, 30, offbeat: .2, noise: .15, seed: 5, skip: k => k % 5 == 4).Tracker;
+    Check(missing.Locked && Math.Abs(missing.Bpm / 120 - 1) < .04, $"漏拍也认得出（估成 {missing.Bpm:0.0}）");
+    Check(PhaseError(missing, 29.9, 120, .3) < .06, "漏拍时相位也对得上");
+
+    // 锁定之后速度不再跳：一首 120 BPM 的歌放 60 秒，每 0.5 秒看一次，估值一直在 4% 以内（或者它的 2 倍、1/2 倍）。
+    {
+        var tracker = new BeatTracker();
+        double firstBpm = 0; bool stable = true; int samples = 0;
+        var random = new Random(11);
+        for (int frame = 0; frame * .05 < 60; frame++)
+        {
+            double t = frame * .05, onset = random.NextDouble() * .15;
+            double beatPosition = t / .5;
+            if (Math.Abs(beatPosition - Math.Round(beatPosition)) * .5 < .025) onset += 1;
+            else if (Math.Abs(beatPosition * 2 - Math.Round(beatPosition * 2)) * .25 < .025) onset += .3;
+            tracker.Add(t, onset * .08);
+            if (t > 12 && frame % 10 == 0 && tracker.Locked)
+            {
+                if (firstBpm == 0) firstBpm = tracker.Bpm;
+                samples++;
+                double ratio = tracker.Bpm / firstBpm;
+                if (Math.Abs(ratio - 1) > .04) stable = false;
+            }
+        }
+        Check(samples > 50 && stable, $"锁定后速度不跳（{samples} 次采样）");
+    }
+
+    // 换歌：先 120 BPM 放 25 秒，再换成 90 BPM（不相干的速度），10 秒内要重新锁到 90 附近。
+    {
+        var tracker = new BeatTracker();
+        Run(120, .1, 25, .2, .15, 21, reuse: tracker);
+        Check(tracker.Locked && Math.Abs(tracker.Bpm / 120 - 1) < .04, "先锁到 120");
+        Run(90, 25.2 - 25 + .1, 25, .2, .15, 22, reuse: tracker, startAt: 25);
+        Check(tracker.Locked && Math.Abs(tracker.Bpm / 90 - 1) < .05, $"换歌后跟到 90（现在 {tracker.Bpm:0.0}）");
+    }
+
+    // 没有鼓点、只有一点底噪：不该乱锁。
+    {
+        var tracker = new BeatTracker();
+        var random = new Random(3);
+        for (int frame = 0; frame * .05 < 30; frame++) tracker.Add(frame * .05, random.NextDouble() * .0005);
+        Check(!tracker.Locked, "只有底噪不锁");
+    }
+
+    // 拍位置是连续的、按速度往前走：每过一个周期加 1，Reset 以后没有相位。
+    {
+        var (tracker, _) = Run(120, .2, 20, .2, .1, 9);
+        double a = tracker.Position(20), b = tracker.Position(20.5);
+        Check(Math.Abs(b - a - .5 / tracker.Period) < 1e-6, "拍位置按周期往前走");
+        tracker.Reset();
+        Check(double.IsNaN(tracker.Position(20)) && !tracker.Locked, "Reset 以后没有相位");
+    }
+}
+
+// 实时语音前的日语规整：时间和数字要念得对（「0.3」合成出来会被念成「0 3」，点和小数位都丢）。
+void VerifyJapanese()
+{
+    string N(string text) => Japanese.Normalize(text);
+
+    // 时间：24 点写成「深夜0時」，整点不带分
+    Check(N("24:00") == "深夜0時", "24:00 → 深夜0時");
+    Check(N("24：00") == "深夜0時", "全角冒号也认");
+    Check(N("24:30") == "深夜0時30分", "24:30 → 深夜0時30分");
+    Check(N("12:30") == "12時30分", "12:30 只换写法");
+    Check(N("12:05") == "12時5分", "12:05 去掉补零");
+    Check(N("0:00") == "0時", "0:00 → 0時");
+    Check(N("123:45") == "123:45", "不是时间的比例不动");
+    Check(N("24時00分") == "深夜0時", "已经是汉字的也收一下");
+
+    // 小数：整数位用数词，小数位一位一位念
+    Check(N("0.3") == "零点三", "0.3 → 零点三");
+    Check(N("1.5") == "一点五", "1.5 → 一点五");
+    Check(N("12.5") == "十二点五", "两位数写成十二");
+    Check(N("0.25") == "零点二五", "0.25 → 零点二五");
+    Check(N("105.0") == "百五点零", "105 写成百五");
+    Check(N("12000.5") == "一万二千点五", "一万二千");
+    Check(N("０．３") == "零点三", "全角数字和小数点也认");
+
+    // 版本号、IP、带英文前缀的版本号不动
+    Check(N("1.2.3") == "1.2.3", "版本号不动");
+    Check(N("192.168.1.1") == "192.168.1.1", "IP 不动");
+    Check(N("v2.0") == "v2.0", "v2.0 不动");
+    Check(N("GPT-4.5") == "GPT-四点五", "型号里的小数是数量，照念");
+
+    // 百分号：合成器会直接吞掉，写成「パーセント」才念得出来
+    Check(N("30%") == "30パーセント", "30% → 30パーセント");
+    Check(N("30％") == "30パーセント", "全角百分号也认");
+    Check(N("達成率は30%、確率は0.5%") == "達成率は30パーセント、確率は零点五パーセント", "百分号和小数一起");
+
+    // 标点（2026-11-12 合成 + 识别实测）：括号旁白会被念出来，波浪号、全角斜杠会连读错
+    Check(N("（笑）そうだね。") == "そうだね。", "括号旁白连内容一起去掉");
+    Check(N("待って…（ため息）もう無理。") == "待って…もう無理。", "句中的括号旁白也去掉");
+    Check(N("(test) だけ") == " だけ", "半角括号也认");
+    Check(N("一〜三まで。") == "一から三まで。", "波浪号在数字之间换成から");
+    Check(N("1～3") == "1から3", "半角波浪号也认");
+    Check(N("そう〜なの？") == "そうなの？", "拖长音的波浪号直接去掉");
+    Check(N("A／B のどっち。") == "A、B のどっち。", "斜杠换成顿号");
+    Check(N("「やめて」と言った。") == "やめてと言った。", "引号去掉、内容保留");
+    Check(N("《テスト》です。") == "テストです。", "书名号去掉、内容保留");
+    Check(N("【重要】なこと。") == "重要なこと。", "方头括号去掉、内容保留");
+
+    // 一句话里混着来
+    Check(N("音量は0.3、24:00に終わるよ。") == "音量は零点三、深夜0時に終わるよ。", "混着也各管各的");
 }

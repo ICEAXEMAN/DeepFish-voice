@@ -20,6 +20,9 @@ public sealed class ControlServer : IDisposable
     private long nextSession, sequence;
     public string? LastConnectionError { get; private set; }
     public int Connections => sessions.Values.Count(s => s.Initialized && !s.Closed);
+    // 桥接正常关掉时（Agent 自己退出了）会先说一声「fishpet/farewell」，见 Mcp 那边的 Run()。
+    // 有这一声就不用等满一分钟，几秒就退（用户 2026-11-12 要的）；新会话一连上来就作废。
+    internal DateTime? FarewellAt { get; private set; }
     public ControlServer(Func<string, JsonElement, CancellationToken, Task<object>> execute, string? pipeName = null)
     { this.execute = execute; pipe = pipeName ?? Tools.PipeName; _ = Task.Run(Accept); }
     // Only this user may open the pipe, and it is owned by this user. PipeOptions.CurrentUserOnly would make its
@@ -151,11 +154,14 @@ public sealed class ControlServer : IDisposable
             {
                 if (method == "notifications/initialized" && negotiated) Initialized = true;
                 if (method == "notifications/cancelled" && args.TryGetProperty("requestId", out var cancelled) && requests.TryGetValue(cancelled.ToString(), out var source)) source.Cancel();
+                // 桥接在正常退出前说的最后一句：记住时间，然后这个会话就收掉
+                if (method == "fishpet/farewell") { owner.FarewellAt = DateTime.UtcNow; Dispose(); }
                 return Task.CompletedTask;
             }
             if (method == "initialize")
             {
                 negotiated = true;
+                owner.FarewellAt = null; // 有新会话连上：之前那句「再见」作废
                 var version = args.TryGetProperty("protocolVersion", out var requested) && requested.GetString() == "2025-03-26" ? "2025-03-26" : "2025-11-25";
                 Result(id, new { protocolVersion = version, capabilities = new { tools = new { listChanged = false }, logging = new { }, resources = new { subscribe = true, listChanged = false } },
                     serverInfo = new { name = "FishPet", version = typeof(ControlServer).Assembly.GetName().Version!.ToString(3) },

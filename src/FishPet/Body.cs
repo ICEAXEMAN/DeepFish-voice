@@ -120,11 +120,11 @@ internal sealed partial class Body
     };
 
     // 一段舞：每一拍（hits）身体转到一边（正数转向屏幕左边，负数右边，绝对值是幅度），头往反方向转、反方向歪，
-    // 头在两边之间经过正中时抬到最高，两边最低，走出一个小拱形。gaps 是每一拍的长度（秒）；
-    // dip：同一边连着两拍时，两拍之间身体回弹一半（“顿”一下）。每条轨迹最后都回到 0。
+    // 头比身子晚 0.14 秒到，两头不是同一刻一起掉头，看着连贯；头还走一条小拱形（拍点低头、两拍中间抬头），就是点头。
+    // gaps 是每一拍的长度（秒）；dip：同一边连着两拍时，两拍之间身体回弹一半（“顿”一下）。每条轨迹最后都回到 0。
     private static Word Dance(double size, double[] beats, double[] hits, bool dip)
     {
-        // 整体速度降低 30%（用户，2026-11-06）：每一拍都拉长到 1/0.7 倍。头比身体晚半拍一点点（跟随），身体到头、头到身体不是同一刻一起掉头，看着更连贯。
+        // 整体速度降低 30%（用户，2026-11-06）：每一拍都拉长到 1/0.7 倍。
         var gaps = beats.Select(beat => beat / .7).ToArray();
         const double HeadLag = .14;
         var times = new double[hits.Length];
@@ -142,6 +142,7 @@ internal sealed partial class Body
             keys.Add((end + lag, 0));
             return string.Join(' ', keys.Select(key => Number(key.Time) + ":" + Number(key.Value * size)));
         }
+        // 点头的拱形（用户 2026-11-12 让加回来）：每一拍落到 low（低头），两拍中间抬到 high。
         string Arch(double high, double low, double lag = 0)
         {
             var keys = new List<(double Time, double Value)> { (0, 0) };
@@ -235,6 +236,8 @@ internal sealed partial class Body
 
     private readonly Action<string> send;
     private readonly Dictionary<string, (string Id, double Value)[]> channels = [];
+    // 跳舞时的表情单独放：不算「摆着姿势」，否则跳舞一换脸就判定成被摆姿势、舞蹈自己把自己停下（本机修，2026-11-12）
+    private (string Id, double Value)[]? danceFace;
     private readonly HashSet<string> overlays = [];
     private Dictionary<string, double> shown = [];
     private (string On, string Off)? hand;
@@ -366,6 +369,19 @@ internal sealed partial class Body
 
     private static Word? Find(string name) => Words.TryGetValue(name, out var make) ? make(null, 1, null) : null;
 
+    // 跳舞时的脸（本机加，2026-11-12 用户要的；三个表情也是用户定的）：
+    // 0 眯眼笑＋微笑、1 眯眼笑＋大笑、2 闭眼＋挑眉；-1 收掉，回到默认脸。
+    internal void DanceFace(int mood)
+    {
+        danceFace = mood < 0 ? null : mood switch
+        {
+            1 => [("EyeOpen", 0), ("EyeSmile", 1), ("ParamMouthForm", 1), ("ParamMouthOpenY", .5), ("JawOpen", .25)],
+            2 => [("EyeOpen", 0), ("ParamBrowLY", .6), ("ParamBrowRY", .6), ("BrowInnerUp", .4)],
+            _ => [("EyeOpen", 0), ("EyeSmile", 1), ("ParamMouthForm", .9)],
+        };
+        Show();
+    }
+
     // 音乐律动用（本机加，2026-11-10）：把现成的舞步按拍子变速演一遍——BPM 高就放快、BPM 低就放慢。
     // seconds 是这一句该演多久（Dance.Seconds 算的：拍数 × 一拍）；返回实际演了多久（变速有 .45~2.4 的限制）。
     // 只发 anim 轨道，不碰通道和表情：这些舞步本来就是纯粹的一串轨迹，演完自己回原样。
@@ -392,6 +408,7 @@ internal sealed partial class Body
         var total = new Dictionary<string, double>();
         foreach (var hold in channels.Values)
             foreach (var (id, value) in hold) total[id] = total.GetValueOrDefault(id) + value;
+        foreach (var (id, value) in danceFace ?? []) total[id] = total.GetValueOrDefault(id) + value;
         foreach (var id in shown.Keys.Where(id => !total.ContainsKey(id))) send($"clear {id}");
         foreach (var (id, value) in total) if (!shown.TryGetValue(id, out var before) || before != value) send($"set {id} {Number(value)}");
         shown = total;
@@ -426,7 +443,7 @@ internal sealed partial class Body
     // A new renderer knows nothing of what the one before showed.
     internal void Forget()
     {
-        channels.Clear(); overlays.Clear(); shown = []; hand = null;
+        channels.Clear(); overlays.Clear(); shown = []; hand = null; danceFace = null;
     }
 }
 
@@ -441,7 +458,6 @@ internal sealed class Line
     private readonly List<(string? Cue, int End, double Seconds, bool Talks)> steps = [];
     // act(cue, spoken, tone): spoken is how long the words after it take, tone their "！" or "…" (Body.Apply).
     private readonly Func<string, double, char, double> act;
-    private readonly bool recorded;
     private int index;
     private double at, clock;
 
@@ -464,6 +480,7 @@ internal sealed class Line
         return lines;
     }
 
+    private readonly bool recorded;
     internal Line(string text, Func<string, double, char, double> act, double? voiceSeconds = null, double charactersPerSecond = CharactersPerSecond)
     {
         this.act = act;

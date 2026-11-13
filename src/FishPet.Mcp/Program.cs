@@ -105,6 +105,10 @@ internal sealed class Relay(string? givenPipe)
                 if (id != null && waiting.TryRemove(id, out _)) await ToAgent(Failure(id, "桌宠刚好关掉了，再用一次工具她会重新出来。"));
             }
         }
+        // Agent 把我们的输入关了：说一声「是我这边正常关的」，她几秒内跟着退场，不用等满一分钟（用户 2026-11-12 要的）。
+        // 被她自己的 quit 关掉、或者进程被杀，就走不到这里，她还是按原来的一分钟退。
+        try { if (toPet is { } tell) await tell.WriteLineAsync(new JsonObject { ["jsonrpc"] = "2.0", ["method"] = "fishpet/farewell" }.ToJsonString()); }
+        catch (Exception error) when (error is IOException or ObjectDisposedException or NullReferenceException) { }
         pipe?.Dispose();
     }
 

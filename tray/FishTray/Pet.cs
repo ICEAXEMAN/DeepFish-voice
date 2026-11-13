@@ -12,7 +12,8 @@ namespace FishTray;
 // 和桌宠说话：走她自带的本机接口（api.json 里的地址和口令），不经过 Claude，不花 token。
 internal static class Pet
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(8) };
+    // 本机接口，永远不走代理（系统代理开着时 HttpClient 有时会把 127.0.0.1 也送进代理，连不上托盘）
+    private static readonly HttpClient Http = new(new HttpClientHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(8) };
 
     internal static string Root { get; private set; } = "";
     internal static string Exe => Path.Combine(Root, "bin", "FishPet.exe");
@@ -54,8 +55,8 @@ internal static class Pet
         catch { return null; }
     }
 
-    // 调一个工具。返回里的 JSON；连不上或工具报错返回 null。
-    internal static async Task<JsonElement?> Call(string tool, object? args = null)
+    // 调一个工具。返回里的 JSON；连不上或工具报错返回 null。seconds：等多久（查 GitHub 要久一点）。
+    internal static async Task<JsonElement?> Call(string tool, object? args = null, double seconds = 4)
     {
         if (Api() is not { } api) return null;
         try
@@ -64,7 +65,7 @@ internal static class Pet
             { Content = new StringContent(JsonSerializer.Serialize(args ?? new { }), Encoding.UTF8, "application/json") };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", api.Token);
             request.Headers.Add("X-FishTray", "1");
-            using var response = await Http.SendAsync(request);
+            using var response = await Http.SendAsync(request).WaitAsync(TimeSpan.FromSeconds(seconds));
             using var outer = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             if (outer.RootElement.TryGetProperty("isError", out var error) && error.ValueKind == JsonValueKind.True) return null;
             var text = outer.RootElement.GetProperty("content")[0].GetProperty("text").GetString();

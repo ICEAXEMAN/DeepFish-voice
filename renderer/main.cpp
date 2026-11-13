@@ -505,9 +505,13 @@ public:
         // darting. Holds and tracks named like these inputs add to them, so her body follows her head the
         // way the author set it up instead of the head turning alone.
         auto* ids = CubismFramework::GetIdManager();
-        float ease = 1 - std::exp(-dt * 10);
+        // 本机改（2026-11-12）：头和眼睛各有各的目标和缓动速度，回正时可以眼睛先到、头慢慢跟上。
+        // 平时（look 只给两个数）眼睛的目标就是头的目标，速度也一样，和以前完全相同。
+        float ease = 1 - std::exp(-dt * headRate), eyeEase = 1 - std::exp(-dt * eyeRate);
         lookX += (lookTargetX - lookX) * ease;
         lookY += (lookTargetY - lookY) * ease;
+        eyeLookX += ((eyeFollowsHead ? lookTargetX : eyeTargetX) - eyeLookX) * eyeEase;
+        eyeLookY += ((eyeFollowsHead ? lookTargetY : eyeTargetY) - eyeLookY) * eyeEase;
         aliveTime += dt;
         saccadeWait -= dt;
         if (saccadeWait <= 0)
@@ -524,8 +528,8 @@ public:
             { "FaceAngleX", lookX * 22 + alive * 3.0f * Drift(aliveTime, 0.37f, 0.91f, 1.73f) },
             { "FaceAngleY", lookY * 16 + alive * 2.0f * Drift(aliveTime, 0.29f, 0.77f, 1.41f) },
             { "FaceAngleZ", alive * 3.5f * Drift(aliveTime, 0.23f, 0.63f, 1.19f) },
-            { "EyeRightX", -0.6f * (lookX + alive * saccadeX) },
-            { "EyeRightY", 0.7f * (lookY + alive * saccadeY) },
+            { "EyeRightX", -0.6f * (eyeLookX + alive * saccadeX) },
+            { "EyeRightY", 0.7f * (eyeLookY + alive * saccadeY) },
         };
 
         // How far open her eyes are: EyeOpen for both, or one eye by its parameter. Several multiply.
@@ -748,6 +752,8 @@ public:
     float bodyX = 0, bodyY = 0, bodyRoll = 0, bodySquash = 0, anchorY = -0.92f, anchorScale = 1;
     std::map<std::string, ACubismMotion*> motions;
     float lookTargetX = 0, lookTargetY = 0, lookX = 0, lookY = 0;
+    float eyeTargetX = 0, eyeTargetY = 0, eyeLookX = 0, eyeLookY = 0, headRate = 10, eyeRate = 10;
+    bool eyeFollowsHead = true;
     float swayTargetX = 0, swayTargetY = 0, swayX = 0, swayY = 0;
     size_t textureBytes = 0;
     int clipCount = 0, maskBuffers = 1;
@@ -920,7 +926,23 @@ void Exec(const std::string& line, Pet& pet, View& view)
     else if (command == "anchor") { pet.anchorY = static_cast<float>(atof(a.c_str())); pet.anchorScale = static_cast<float>(atof(b.c_str())); }
     // Runs time forward without drawing, so a body change is over before anyone sees it happen.
     else if (command == "settle") { for (int i = 0; i < 90; i++) pet.Tick(1.0f / 60); }
-    else if (command == "look") { pet.lookTargetX = static_cast<float>(atof(a.c_str())); pet.lookTargetY = static_cast<float>(atof(b.c_str())); }
+    // look <头x> <头y> [<眼x> <眼y>]：只给两个数，眼睛跟着头；给四个数，眼睛有自己的目标（回正时眼睛先回去）。
+    else if (command == "look")
+    {
+        pet.lookTargetX = static_cast<float>(atof(a.c_str())); pet.lookTargetY = static_cast<float>(atof(b.c_str()));
+        pet.eyeFollowsHead = c.empty();
+        if (!c.empty())
+        {
+            std::string d; input >> d;
+            pet.eyeTargetX = static_cast<float>(atof(c.c_str())); pet.eyeTargetY = static_cast<float>(atof(d.c_str()));
+        }
+    }
+    // lookrate <头> <眼>：头和眼睛往目标靠的快慢（每秒的比例系数，默认都是 10；越小越慢）。
+    else if (command == "lookrate")
+    {
+        pet.headRate = std::clamp(static_cast<float>(atof(a.c_str())), 0.2f, 40.0f);
+        pet.eyeRate = std::clamp(static_cast<float>(atof(b.c_str())), 0.2f, 40.0f);
+    }
     else if (command == "sway")
     {
         pet.swayTargetX = std::clamp(static_cast<float>(atof(a.c_str())) / 40, -30.0f, 30.0f);

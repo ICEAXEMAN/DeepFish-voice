@@ -75,7 +75,17 @@ if (Test-Path -LiteralPath $tray) {
     & dotnet publish $tray -c Release -o (Join-Path $root 'tray\app') --nologo -v q | Out-Null
     if ($LASTEXITCODE -ne 0) { Missing "托盘控制台编译失败。再运行一次 dotnet publish tray\FishTray\FishTray.csproj -c Release -o tray\app 看输出。" }
     Ok '托盘控制台编译好了'
+    # 托盘图标要从普通完整性（Medium）的进程发出去，Explorer 才收；Low 标签会让图标静默消失（本机加，2026-11-11）
+    foreach ($dir in @('bin', 'tray\app')) {
+        $path = Join-Path $root $dir
+        if (Test-Path $path) { & icacls $path /setintegritylevel '(OI)(CI)M' /T 2>$null | Out-Null }
+    }
 }
+# 测试和自检要往临时目录里写文件：插件可能带着低完整性标签（Agent 的工作区、沙箱），系统的临时目录反而写不进去，
+# 指到插件自己的 cache 下面最稳（本机修，2026-11-11）。
+$tmp = Join-Path $root 'cache\tmp'
+New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+$env:TMP = $tmp; $env:TEMP = $tmp
 & dotnet run --project (Join-Path $root 'src\FishPet.Tests\FishPet.Tests.csproj') -c Release | Out-Host
 if ($LASTEXITCODE -ne 0) { Missing '动作逻辑测试没通过。' }
 

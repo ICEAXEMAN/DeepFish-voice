@@ -2,5 +2,5 @@
     - id: dafeiyu-hooks
       name: '@local/dafeiyu-hooks'
       config:
-        apiPath: '<插件完整路径>\api.json'
+        apiPath: 'C:\Users\14623\Desktop\大肥鱼桌宠_完整包\大肥鱼桌宠\api.json'
 

@@ -455,16 +455,23 @@
             </Setter>
         </Style>
 
-        <!-- 提示框：深蓝底，和面板一致 -->
+        <!-- 提示框：深蓝底，和面板一致；长句子自动换行（本机修，2026-11-12：以前 MaxWidth 260 不换行，长的提示会被切掉） -->
         <Style TargetType="ToolTip">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
             <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="340" FontSize="12" Foreground="{StaticResource TextBrush}"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToolTip">
-                        <Border Background="#F00B1640" BorderBrush="{StaticResource AccentSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" MaxWidth="260">
-                            <ContentPresenter TextElement.Foreground="{StaticResource TextBrush}"/>
+                        <Border Background="#F00B1640" BorderBrush="{StaticResource AccentSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="10,7" MaxWidth="364">
+                            <ContentPresenter/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>

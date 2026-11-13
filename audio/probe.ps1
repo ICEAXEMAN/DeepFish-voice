@@ -14,7 +14,11 @@ if (-not (Test-Path -LiteralPath $dll)) {
     exit 1
 }
 try {
-    [System.Reflection.Assembly]::LoadFrom($dll) | Out-Null
+    # LoadFrom fails for this DLL from a non-ASCII path / blocked file (0x80131515).
+    # LoadFile from an ASCII temp copy works; keep the copied file for the process lifetime.
+    $load = Join-Path $env:TEMP ('NAudio-' + [guid]::NewGuid().ToString('N') + '.dll')
+    Copy-Item -LiteralPath $dll -Destination $load -Force -ErrorAction Stop
+    [System.Reflection.Assembly]::LoadFile($load) | Out-Null
 } catch {
     Write-Output ('{"error":"naudio-load-failed","message":"' + ($_.Exception.Message -replace '"', "'") + '"}')
     exit 1
@@ -141,9 +145,7 @@ public static class WhaleEar
                             if (level < 0.004) continue;
                             uint pid = session.GetProcessID;
                             if (pid == 0) continue;
-                            // Our own loopback capture shows up as an active session on every device we listen to,
-                            // and its meter follows the device mix: left in, it would outrank the real music app.
-                            if (pid == Process.GetCurrentProcess().Id) continue;
+                            if (pid == (uint)Process.GetCurrentProcess().Id) continue; // 采集器自己在声卡上的会话，不能算成放音乐的软件（本机修，2026-11-12）
                             string name = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
                             double before;
                             if (!found.TryGetValue(name, out before) || level > before) found[name] = level;
@@ -194,11 +196,13 @@ public static class WhaleEar
         return sb.ToString();
     }
 
+    // Keep the parent Process object: building a new one every 50 ms cost ~15% of a core.
+    private static Process _parentProc;
     private static bool ParentAlive()
     {
         try
         {
-            using (var process = Process.GetProcessById(_parentPid)) return !process.HasExited;
+            if (_parentProc == null) _parentProc = Process.GetProcessById(_parentPid); return !_parentProc.HasExited;
         }
         catch { return false; }
     }

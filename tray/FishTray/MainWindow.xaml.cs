@@ -76,8 +76,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Icon = Whale.Source(64);
-        Logo.Source = Whale.Source(96);
+        Icon = Whale.WindowIcon();       // 任务栏 / Alt+Tab 用的图标
+        Logo.Source = Whale.Source(136); // 抬头 logo（34 像素显示，高分屏留足像素）
+        SourceInitialized += (_, _) => Taskbar.SetId(this, Taskbar.PanelId); // 在任务栏上单独占一个按钮
         DrawSky();
         ClipCorners();
         MaxHeight = Math.Min(900, SystemParameters.WorkArea.Height - 8);
@@ -97,13 +98,18 @@ public partial class MainWindow : Window
         ScaleSlider.ValueChanged += (_, e) => { if (!loading) Queue("scale", Math.Round(e.NewValue, 1)); };
         BubbleSlider.ValueChanged += (_, e) => { if (!loading) Queue("bubble_scale", Math.Round(e.NewValue, 1)); };
         IdleSlider.ValueChanged += (_, e) => { if (!loading) Queue("idle_seconds", IdleStops[(int)Math.Round(e.NewValue)]); };
-        VolumeSlider.ValueChanged += (_, e) => { if (!loading) Queue("volume", Math.Round(e.NewValue, 0) / 100); };
+        // 音量（本机修，2026-11-12）：之前滑块只显示值、没有处理函数，拖了也不发出去，所以调不动。
+        // 初值要在挂处理函数之前给，不然一开面板就把音量推成 80% 了。
+        VolumeSlider.Value = 80;
+        VolumeSlider.ValueChanged += (_, e) => { if (!loading) Queue("volume", Math.Round(e.NewValue / 100.0, 2)); };
         SetupSlider(ScaleSlider, ScaleMarks, ScaleValue, v => $"{v:0.0}×", (0.5, "0.5×"), (1, "1.0×"), (1.5, "1.5×"), (2, "2.0×"));
         SetupSlider(BubbleSlider, BubbleMarks, BubbleValue, v => $"{v:0.0}×", (0.5, "0.5×"), (1, "1.0×"), (1.5, "1.5×"), (2, "2.0×"));
-        SetupSlider(VolumeSlider, VolumeMarks, VolumeValue, v => $"{v:0}%", (0, "静音"), (50, "50%"), (100, "100%"));
+        SetupSlider(VolumeSlider, VolumeMarks, VolumeValue, v => $"{Math.Round(v)}%", (0, "0"), (25, "25"), (50, "50"), (75, "75"), (100, "100"));
         SetupSlider(IdleSlider, IdleMarks, IdleValue, v => SecondsText(IdleStops[(int)Math.Round(v)]),
             (0, "15秒"), (Array.IndexOf(IdleStops, 30), "30秒"), (Array.IndexOf(IdleStops, 60), "1分"), (Array.IndexOf(IdleStops, 120), "2分"), (Array.IndexOf(IdleStops, 300), "5分"), (IdleStops.Length - 1, "10分"));
-        Wire(SwFollow, "follow_mouse"); Wire(SwFull, "hide_on_fullscreen"); Wire(SwStartHidden, "start_hidden"); Wire(SwKeepOn, "keep_on_screen"); Wire(SwUpdates, "check_updates"); Wire(SwCoaxSleep, "coax_sleep"); Wire(SwCoaxLunch, "coax_lunch"); Wire(SwTts, "tts_enabled"); Wire(SwTtsAuto, "tts_autostart");
+        Wire(SwMusicDance, "music_dance"); Wire(SwFollow, "follow_mouse"); Wire(SwFull, "hide_on_fullscreen"); Wire(SwStartHidden, "start_hidden"); Wire(SwKeepOn, "keep_on_screen"); Wire(SwCoaxSleep, "coax_sleep"); Wire(SwCoaxLunch, "coax_lunch"); Wire(SwTts, "tts_enabled"); Wire(SwTtsAuto, "tts_autostart");
+        Wire(SwContextChat, "context_chat"); // 桌面实况总开关（本机加，2026-11-12）
+        ContextSettingsButton.Click += (_, _) => OpenContextSettings();
         Wire(SwVoice, "voice_enabled");
         SwVoice.Click += (_, _) => ApplyVoiceVisibility();
         ApplyVoiceVisibility();
@@ -118,6 +124,7 @@ public partial class MainWindow : Window
         SayBox.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await SaySomething(); } };
         SayBox.TextChanged += (_, _) => SayHint.Visibility = SayBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         ResetButton.Click += async (_, _) => await ResetAll();
+        UpdateButton.Click += async (_, _) => await CheckUpdate();
         SearchBox.TextChanged += (_, _) => ApplyFilter();
         SearchClear.Click += (_, _) => { SearchBox.Clear(); SearchBox.Focus(); };
         SizeChanged += (_, _) => { if (!moved && IsVisible) Anchor(); else if (IsVisible) KeepOnScreen(); };
@@ -236,6 +243,7 @@ public partial class MainWindow : Window
             Anchor();
             BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)));
         }
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal; // 在任务栏上最小化过：点托盘/再次打开时还原
         Activate();
         _ = Refresh();
     }
@@ -651,6 +659,35 @@ public partial class MainWindow : Window
         else Notice(Pet.Running ? "没做成，再点一下试试" : "桌宠没有运行");
     }
 
+    // 检查更新（用户 2026-11-12 要的）：按一下就去问 GitHub，结果直接写在按钮下面，不占用设置里的开关。
+    private async Task CheckUpdate()
+    {
+        UpdateButton.IsEnabled = false;
+        UpdateNote.Visibility = Visibility.Visible;
+        UpdateNote.Text = "正在问 GitHub…";
+        var result = await Pet.Call("check_update", null, 25);
+        UpdateButton.IsEnabled = true;
+        if (result is not { } r)
+        {
+            UpdateNote.Text = Pet.Running ? "没查成：桌宠那边没回话，再点一下试试" : "桌宠没有运行，先让她出来";
+            return;
+        }
+        string Text(string key) => r.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+        var state = Text("state");
+        var error = Text("error");
+        var behind = r.TryGetProperty("behind", out var b) && b.TryGetInt32(out var n) ? n : 0;
+        string? newest = r.TryGetProperty("changes", out var list) && list.ValueKind == JsonValueKind.Array
+            ? list.EnumerateArray().Select(e => e.GetString() ?? "").FirstOrDefault(line => line.Length > 0) : null;
+        UpdateNote.Text = state switch
+        {
+            "latest" => "已是最新版本",
+            "behind" => $"有新版本：落后 {behind} 个提交" + (newest is { Length: > 0 } ? "\n最新一条：" + newest : "") + "\n跟 Agent 说一句「更新大肥鱼插件」就行",
+            "nogit" => "查不了：这份不是用 git 拉下来的副本",
+            "failed" => "检查失败：" + (error.Length > 0 ? error : "原因不明"),
+            _ => "检查失败：原因不明",
+        };
+    }
+
     // 桌宠说脸上现在开着哪些，按钮的高亮跟着变（刚点过的 4 秒内不被覆盖）
     private void SyncToggles(JsonElement state, bool force = false)
     {
@@ -747,7 +784,7 @@ public partial class MainWindow : Window
 
     internal async Task Refresh()
     {
-        if (!Pet.Running) { SetStatus(null, "桌宠没有运行"); return; }
+        // 不靠 Process.GetProcessesByName 判断她在不在：这台机器上它有时看不到桌宠进程，直接问她本人（本机修，2026-11-11）
         if (await Pet.Call("get_state") is not { } state) { SetStatus(null, "连不上桌宠"); return; }
         Apply(state);
     }
@@ -774,7 +811,7 @@ public partial class MainWindow : Window
         {
             ShowSwitch.IsEnabled = true;
             if (Fresh("show")) { ShowSwitch.IsChecked = !hidden; ShowHint.Text = hidden ? "打开开关，她就出来" : "关掉就收起，她在后台待命"; }
-            if (Fresh("scale")) ScaleSlider.Value = Math.Clamp(D("scale", 1), 0.5, 2);
+            if (Fresh("scale")) ScaleSlider.Value = Math.Clamp(D("scale", 1.5), 0.5, 2); // 兜底默认跟 Settings.Scale 一致（1.5，2026-11-13）
             if (Fresh("shape")) SetSeg(shapeSeg, Math.Max(0, Array.IndexOf(ShapeIds, T("shape"))));
             if (Fresh("fps")) SetSeg(fpsSeg, Math.Max(0, Array.IndexOf(FpsValues, (int)D("fps", 60))));
             if (Fresh("idle_seconds")) IdleSlider.Value = NearestStop(D("idle_seconds", 40));
@@ -782,11 +819,11 @@ public partial class MainWindow : Window
             if (Fresh("volume")) VolumeSlider.Value = Math.Clamp(D("volume", 0.8) * 100, 0, 100);
             if (Fresh("stay")) SetSeg(staySeg, Array.IndexOf(StayValues, (int)D("bubble_seconds")));
             if (Fresh("quality")) SetSeg(qualitySeg, Math.Max(0, Array.IndexOf(QualityValues, D("tex_scale", 1))));
-            if (Fresh("follow_mouse")) SwFollow.IsChecked = B("follow_mouse");
-            if (Fresh("hide_on_fullscreen")) SwFull.IsChecked = B("hide_on_fullscreen");
+            if (Fresh("music_dance")) SwMusicDance.IsChecked = B("music_dance");
+            if (Fresh("context_chat")) SwContextChat.IsChecked = s.TryGetProperty("context_chat", out var cc) ? cc.ValueKind != JsonValueKind.False : true;
+            if (Fresh("follow_mouse")) SwFollow.IsChecked = B("follow_mouse");            if (Fresh("hide_on_fullscreen")) SwFull.IsChecked = B("hide_on_fullscreen");
             if (Fresh("start_hidden")) SwStartHidden.IsChecked = B("start_hidden");
             if (Fresh("keep_on_screen")) SwKeepOn.IsChecked = B("keep_on_screen");
-            if (Fresh("check_updates")) SwUpdates.IsChecked = B("check_updates");
             if (Fresh("coax_sleep")) SwCoaxSleep.IsChecked = B("coax_sleep");
             if (Fresh("coax_lunch")) SwCoaxLunch.IsChecked = B("coax_lunch");
             if (Fresh("tts_enabled")) SwTts.IsChecked = B("tts_enabled");
@@ -800,6 +837,24 @@ public partial class MainWindow : Window
             ApplyBond(s);
         }
         finally { loading = false; }
+    }
+
+    // 「识别当前窗口并闲聊」的详细设置窗口（本机加，2026-11-12）：只开一个，重复点就提到前面来
+    // 2026-11-13：窗口被真正关掉过（Alt+F4、或系统把它关掉）之后，WPF 不许再 Show，会报
+    // 「关闭窗口后，无法设置可见性，也无法调用 Show…」。所以关掉就把引用清掉，下次重建。
+    private ContextChatWindow? contextWindow;
+    private void OpenContextSettings()
+    {
+        try
+        {
+            if (contextWindow is null || !contextWindow.IsLoaded)
+            {
+                contextWindow = new ContextChatWindow();
+                contextWindow.Closed += (_, _) => contextWindow = null;
+            }
+            contextWindow.Open();
+        }
+        catch (Exception error) { Notice("设置窗口打不开：" + error.Message); }
     }
 }
 

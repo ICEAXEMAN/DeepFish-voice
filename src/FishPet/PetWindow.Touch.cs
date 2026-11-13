@@ -17,18 +17,24 @@ namespace FishPet;
 internal sealed partial class PetWindow
 {
     // ---- 弹簧：每个参数一根，目标由当前互动设置，弹簧负责惯性和回弹，再用渲染器的 live 命令每帧发过去 ----
-    private sealed class Spring { internal double X, V, Target; }
+    private sealed class Spring { internal double X, V, Target, K, C; }
     private readonly Dictionary<string, Spring> springs = [];
     private readonly Dictionary<string, double> sentValues = [];
     private double springK = 130, springC = 13;
     private DispatcherTimer? touchTimer;
     private DateTime touchLast;
 
-    private void Aim(string id, double target)
+    // k/c 传 0 就用全局那对（其它地方的弹簧照旧）；传了就这一条参数自己用（拖动时的分层弹簧）。
+    private void Aim(string id, double target, double k = 0, double c = 0)
     {
         if (!springs.TryGetValue(id, out var spring)) springs[id] = spring = new Spring();
         spring.Target = target;
+        spring.K = k;
+        spring.C = c;
     }
+
+    // 这条参数弹簧现在的位置（两级弹簧里，头要读身子当前摆到哪了）。
+    private double Aimed(string id) => springs.TryGetValue(id, out var spring) ? spring.X : 0;
 
     private void AimAllZero() { foreach (var spring in springs.Values) spring.Target = 0; }
 
@@ -38,7 +44,8 @@ internal sealed partial class PetWindow
         bool moving = false;
         foreach (var (id, spring) in springs.ToArray())
         {
-            double a = springK * (spring.Target - spring.X) - springC * spring.V;
+            double k = spring.K > 0 ? spring.K : springK, c = spring.C > 0 ? spring.C : springC;
+            double a = k * (spring.Target - spring.X) - c * spring.V;
             spring.V += a * dt;
             spring.X += spring.V * dt;
             if (spring.Target == 0 && Math.Abs(spring.X) < .004 && Math.Abs(spring.V) < .03)
@@ -145,6 +152,7 @@ internal sealed partial class PetWindow
         var at = e.GetPosition(this);
         if (!OnHead(at, out _)) return; // 只有摸头：别的地方右键不算
         e.Handled = true;
+        RaiseAboveAll();
         stroking = true;
         strokeTravel = strokeMoving = strokeMaxTime = strokeHeadTime = 0;
         strokeDeepTime = 0; melted = false; afterStrokeMelt = false;
@@ -345,16 +353,25 @@ internal sealed partial class PetWindow
     private bool dragMeasured;
     private Point dragLast;
     private Vector dragVel;
-    private double dragTime, dizzy;
+    private double dizzy;
     private double? dizzyAngle;
+
+    // 拖动时的惯性（用户 2026-11-12）：抓哪儿都用同一套「抓腰」的参数——
+    //   身子摆幅 1.3（原来腰档 1.0 再增强 30%），头增益 0.98（0.75 × 1.3），
+    //   身子 k/c 70/7、头 k/c 40/5，整体平移压到 20%（抓点才跟手）。
+    // 身子和头是两级弹簧：头的目标来自「身子当前摆到哪」，所以晚一步、还会过冲（鞭子感）。
+    internal double GrabbedSway { get; private set; } = 1; // 拖动时渲染器整体平移要压掉多少（抓点那头才跟手）
 
     private void TouchDragStarted()
     {
+        GrabbedSway = .2;
         EndDizzy();
-        dizzy = 0; dizzyAngle = null; dragMeasured = false; dragTime = 0;
+        dizzy = 0; dizzyAngle = null; dragMeasured = false;
         springK = 80; springC = 6; // 拎着的时候阻尼小，摆几下才停
         StartTouchTimer();
     }
+
+    internal void TouchDragEnded() => GrabbedSway = 1;
 
     private void StepDrag(double dt)
     {
@@ -363,18 +380,29 @@ internal sealed partial class PetWindow
         var raw = (pos - dragLast) / dt;
         dragLast = pos;
         dragVel += (raw - dragVel) * (1 - Math.Exp(-dt / .05));
-        dragTime += dt;
         double speed = dragVel.Length;
         double fx = Math.Clamp(dragVel.X / 900, -1, 1), fy = Math.Clamp(dragVel.Y / 900, -1, 1);
-        // 拎着不动或慢慢走时轻轻摆；快了就让速度接管。
-        double swing = 4 * Math.Sin(2 * Math.PI * dragTime / 2.4) * (1 - Math.Min(1, speed / 300));
-        Aim("FaceAngleZ", fx * 18 + swing);
-        Aim("FaceAngleX", fx * 7 - swing * .4);
-        Aim("FaceAngleY", fy * 8);
-        Aim("ViewRoll", fx * 4 + swing * .3);
-        Aim("ViewX", -fx * .012);
-        Aim("ParamBodyAngleX", -fx * 4);
-        Aim("ViewSquash", Math.Clamp(fy * .045, -.04, .05)); // 往下放压扁、往上提拉长
+
+        // 一套参数，抓哪儿都一样（用户 2026-11-12 定的：只留腰那一档，再增强 30%）
+        // 全身摆动强度（用户 2026-11-12）：比原来整体强 30%，拖得越快越强，到 1500 像素/秒封顶，封顶是原来的 1.6 倍。
+        double boost = 1.3 + .3 * Math.Clamp(speed / 1500, 0, 1);
+        double bodyAmp = 1.3 * boost, headGain = .98 * boost;
+        const double bodyK = 70, bodyC = 7, headK = 40, headC = 5;
+
+        // 一级：身子（速度带着走）
+        Aim("ParamBodyAngleX", -fx * 4 * bodyAmp, bodyK, bodyC);
+        Aim("ParamBodyAngleZ", fx * 2.5 * bodyAmp, bodyK, bodyC);
+        Aim("ViewRoll", fx * 4 * bodyAmp, bodyK, bodyC);
+        // 垂直方向（用户 2026-11-12 要的：弹簧程度再强 40%，之后又加 30%）：往下放压扁、往上提拉长，幅度 ×1.82
+        Aim("ViewSquash", Math.Clamp(fy * .082 * boost, -.073 * boost, .091 * boost), bodyK, bodyC);
+        Aim("ViewX", 0, bodyK, bodyC); // 整体横移先不加：那一挪，抓着的部位就不跟手了
+
+        // 二级：头跟着身子实际摆到的位置，方向相反（被拖着走），慢一步、会过冲
+        double maxBody = 4 * bodyAmp;
+        double norm = maxBody > 0 ? Math.Clamp(Aimed("ParamBodyAngleX") / maxBody, -1.2, 1.2) : 0;
+        Aim("FaceAngleZ", -headGain * norm * 18, headK, headC);
+        Aim("FaceAngleX", -headGain * norm * 7, headK, headC);
+        Aim("FaceAngleY", fy * 14.6 * boost, headK, headC); // 上下拖时的点头：8 × 1.4 × 1.3
 
         // 头晕：转圈、来回甩、拖得太快都会累积；平稳了慢慢退。
         if (speed > 150)

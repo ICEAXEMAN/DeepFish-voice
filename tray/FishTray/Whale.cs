@@ -52,27 +52,53 @@ internal static class Whale
         return bmp;
     }
 
+    // ---- 2026-11-13 换成手绘蜡笔贴纸 logo（用户定稿：晶石下移版，1024）----
+    // 面板抬头：Assets\logo.png（原图，抬头按 136 像素解码）
+    // 窗口图标 / 任务栏按钮 / exe 图标：Assets\logo.ico（16–256 十档）
+    // 托盘小图标：Assets\tray.ico（16–64；小尺寸单独缩过，16 像素在深浅任务栏上都认得出）
+    // 三个文件都嵌在程序里（csproj 的 Resource），不用另外带文件。
+    private static System.IO.Stream Res(string name)
+        => System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/" + name, UriKind.Absolute)).Stream;
+
+    // 托盘图标：按系统小图标尺寸（高分屏会更大）从 tray.ico 里挑最合适的一张
     internal static Icon Icon(int s)
     {
-        using var bmp = Draw(s);
-        var handle = bmp.GetHicon();
-        try { using var temp = System.Drawing.Icon.FromHandle(handle); return (Icon)temp.Clone(); }
-        finally { DestroyIcon(handle); }
+        try
+        {
+            using var stream = Res("tray.ico");
+            return new Icon(stream, new Size(s, s));
+        }
+        catch
+        {
+            using var bmp = Draw(s);
+            var handle = bmp.GetHicon();
+            try { using var temp = System.Drawing.Icon.FromHandle(handle); return (Icon)temp.Clone(); }
+            finally { DestroyIcon(handle); }
+        }
     }
 
+    // 面板抬头用的 logo（按需要的像素宽度解码，缩得干净）
     internal static BitmapSource Source(int s)
     {
-        using var bmp = Draw(s);
-        using var memory = new System.IO.MemoryStream();
-        bmp.Save(memory, ImageFormat.Png);
-        memory.Position = 0;
+        using var stream = Res("logo.png");
         var image = new BitmapImage();
         image.BeginInit();
         image.CacheOption = BitmapCacheOption.OnLoad;
-        image.StreamSource = memory;
+        image.DecodePixelWidth = s;
+        image.StreamSource = stream;
         image.EndInit();
         image.Freeze();
         return image;
+    }
+
+    // 窗口图标（任务栏、Alt+Tab 用）：多尺寸 ico，系统自己挑合适的一张
+    private static System.Windows.Media.ImageSource? windowIcon;
+    internal static System.Windows.Media.ImageSource WindowIcon()
+    {
+        if (windowIcon is not null) return windowIcon;
+        var decoder = new IconBitmapDecoder(new Uri("pack://application:,,,/Assets/logo.ico", UriKind.Absolute), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+        windowIcon = decoder.Frames[0];
+        return windowIcon;
     }
 
     [DllImport("user32.dll")] private static extern bool DestroyIcon(IntPtr handle);

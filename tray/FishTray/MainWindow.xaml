@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="大肥鱼" Width="400" SizeToContent="Height"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="NoResize" ShowInTaskbar="False" Topmost="False"
+        ResizeMode="NoResize" ShowInTaskbar="True" Topmost="False"
         UseLayoutRounding="True" SnapsToDevicePixels="True" TextOptions.TextFormattingMode="Display">
 
     <Border x:Name="Shell" Margin="14" CornerRadius="18" BorderThickness="1" BorderBrush="#2A3F7A" ClipToBounds="True">
@@ -221,7 +221,6 @@
                         </StackPanel>
                     </Border>
 
-
                     </StackPanel>
 
                     <!-- 常用：右键任意按钮加入 / 移出 -->
@@ -271,6 +270,17 @@
 
                         <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource CardLineBrush}" BorderThickness="1" CornerRadius="14" Padding="16,6" Margin="0,0,0,12">
                             <StackPanel>
+                                <Grid Margin="0,8" ToolTip="开着：她会看你正在用的软件和网页标题（不读网址、不截图），名单里的软件才会搭话；聊天、支付类窗口一律不看。关掉就完全不关心你在用啥">
+                                    <TextBlock Text="识别当前窗口并闲聊" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button x:Name="ContextSettingsButton" Style="{StaticResource ChipButton}" Content="设置…" Margin="0,0,10,8" Padding="10,3"/>
+                                        <ToggleButton x:Name="SwContextChat" Style="{StaticResource Switch}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,8" ToolTip="电脑在放有拍子的歌时，她会跟着慢慢左右摆；说话、被摸、被拖的时候自动让位">
+                                    <TextBlock Text="听音乐跳舞" VerticalAlignment="Center"/>
+                                    <ToggleButton x:Name="SwMusicDance" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
+                                </Grid>
                                 <Grid Margin="0,8">
                                     <TextBlock Text="视线跟着鼠标" VerticalAlignment="Center"/>
                                     <ToggleButton x:Name="SwFollow" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
@@ -287,10 +297,6 @@
                                     <TextBlock Text="拖到屏幕边弹回来" VerticalAlignment="Center"/>
                                     <ToggleButton x:Name="SwKeepOn" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
                                 </Grid>
-                                <Grid Margin="0,8">
-                                    <TextBlock Text="检查插件新版本" VerticalAlignment="Center"/>
-                                    <ToggleButton x:Name="SwUpdates" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
-                                </Grid>
                                 <Grid Margin="0,8" ToolTip="每晚 00:30、00:40、00:45、00:47 四层，按这台电脑的时间">
                                     <TextBlock Text="哄睡提醒（00:30 起）" VerticalAlignment="Center"/>
                                     <ToggleButton x:Name="SwCoaxSleep" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
@@ -301,6 +307,12 @@
                                 </Grid>
                             </StackPanel>
                         </Border>
+
+                        <!-- 最底下：检查更新（动作，不是开关；结果就写在按钮下面） -->
+                        <StackPanel Margin="0,0,0,14">
+                            <Button x:Name="UpdateButton" Style="{StaticResource Ghost}" Content="检查更新" HorizontalAlignment="Left" Padding="18,7"/>
+                            <TextBlock x:Name="UpdateNote" Style="{StaticResource Caption}" Margin="2,8,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                        </StackPanel>
 
                     </StackPanel>
                     </StackPanel>
@@ -320,7 +332,7 @@
                             </Grid.ColumnDefinitions>
                             <Grid>
                                 <TextBox x:Name="SayBox" Style="{StaticResource Input}" MaxLength="200"/>
-                                <TextBlock x:Name="SayHint" Text="让她说一句话，回车发送" Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                <TextBlock x:Name="SayHint" Text="让她说一句话，回车发送" Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
                             </Grid>
                             <Button x:Name="SayButton" Grid.Column="1" Style="{StaticResource Ghost}" Content="说" Margin="8,0,0,0"/>
                             <Button x:Name="ResetButton" Grid.Column="2" Style="{StaticResource Ghost}" Content="恢复平常" Margin="8,0,0,0" ToolTip="收起所有表情和动作，也会打断正在演的小剧场"/>

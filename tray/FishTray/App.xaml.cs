@@ -9,7 +9,7 @@ using System.Windows.Threading;
 namespace FishTray;
 
 // 任务栏右下角的大肥鱼图标：左键开调控面板，右键菜单（出场/收起、打开面板、退出控制台）。
-// 跟着桌宠走：桌宠一起来它就在，桌宠退场（Claude 断开约 15 秒后）它也退。
+// 跟着桌宠走：桌宠一起来它就在，桌宠退场（Agent 断开约 1 分钟后）它也退。
 public partial class App : System.Windows.Application
 {
     private const string SingleName = "FishTray.Single.7c1f";
@@ -34,6 +34,7 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
         Pet.Init();
+        Taskbar.Register(); // 两个窗口在任务栏上各占一个按钮：先登记名字和图标（HKCU，重复写没关系）
 
         // 画图标预览：FishTray.exe --preview 目标.png
         var args = e.Args;
@@ -64,6 +65,35 @@ public partial class App : System.Windows.Application
                 Shutdown();
             };
             wait.Start();
+            return;
+        }
+
+        // 截图预览：FishTray.exe --context-shot 目标.png [--scroll 像素]（「识别当前窗口并闲聊」子窗口，开发自检用）
+        int shotCtx = Array.IndexOf(args, "--context-shot");
+        if (shotCtx >= 0 && shotCtx + 1 < args.Length)
+        {
+            var target = args[shotCtx + 1];
+            int scrollAt = Array.IndexOf(args, "--scroll");
+            double scroll = scrollAt >= 0 && scrollAt + 1 < args.Length && double.TryParse(args[scrollAt + 1], out var value) ? value : 0;
+            var window = new ContextChatWindow();
+            window.Open();
+            if (Array.IndexOf(args, "--demo-try") >= 0) window.StartTryNote(); // 只演示倒数条，不真让她说话
+            // --wait 毫秒：等久一点再截（图标是后台找的，等它填完再看）
+            int waitAt = Array.IndexOf(args, "--wait");
+            var waitMs = waitAt >= 0 && waitAt + 1 < args.Length && int.TryParse(args[waitAt + 1], out var waited) ? waited : 2500;
+            var waitCtx = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(waitMs) };
+            waitCtx.Tick += (_, _) =>
+            {
+                waitCtx.Stop();
+                try
+                {
+                    window.Snapshot(target, scroll);
+                    File.WriteAllText(target + ".measure.txt", window.Measure());
+                }
+                catch (Exception error) { File.WriteAllText(target + ".err.txt", error.ToString()); }
+                Shutdown();
+            };
+            waitCtx.Start();
             return;
         }
 
@@ -127,21 +157,28 @@ public partial class App : System.Windows.Application
             toggleItem.Text = hidden == false ? "收起" : "出场";
         };
 
-        tray = new NotifyIcon { Icon = Whale.Icon(32), Text = "大肥鱼", Visible = false, ContextMenuStrip = menu };
+        tray = new NotifyIcon { Icon = Whale.Icon(SystemInformation.SmallIconSize.Width), Text = "大肥鱼", Visible = false, ContextMenuStrip = menu };
         tray.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) OpenPanel(); };
     }
 
     private void OpenPanel()
     {
         if (panel is null) return;
-        if (panel.IsVisible) { panel.Activate(); return; }
+        if (panel.IsVisible)
+        {
+            if (panel.WindowState == System.Windows.WindowState.Minimized) panel.WindowState = System.Windows.WindowState.Normal;
+            panel.Activate();
+            return;
+        }
         panel.Open();
     }
 
     private async System.Threading.Tasks.Task Tick()
     {
         if (panel is null) return;
-        bool running = Pet.Running;
+        // 用接口判断她在不在（本机修，2026-11-11）：Process.GetProcessesByName("FishPet") 在这台机器上一直返回空，
+        // 会误判“桌宠没运行”，40 秒后把控制台和桌宠一起关掉，托盘图标就消失了。
+        bool running = panel.Hidden is not null;
         if (running) { petSeen = true; petGoneSince = null; }
         else
         {

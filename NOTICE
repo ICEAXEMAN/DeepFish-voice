@@ -1,0 +1,29 @@
+# NOTICE
+
+DeepFish 桌宠 / 大肥鱼桌宠  
+Copyright (c) 2026 Rockau
+
+## 上游代码
+
+This project is based on **WHALEL2D** by **Ssssshaiiko**:
+
+- https://github.com/Ssssshaiiko/WHALEL2D
+
+The original project is used and modified with the author's permission.
+
+## 角色与模型署名 / Character & model attribution
+
+- 角色原型：上善无形「溟月」
+- 人设：ZipZipPipe（DeepSeek 女仆版）
+- 原画及拆分：神宫凉子
+- Live2D 建模：霓虹猫_NeonNeko
+- 模型来源：神宫凉子免费配布模型（BV1KmxY66EZ3）
+- 角色设定许可：CC BY-NC-SA 4.0
+
+## 重要说明 / Important
+
+- 本仓库**不包含** Live2D 模型文件。模型的使用规则以神宫凉子的《使用须知》为准；请到原作者发布页获取，不要二次分发模型文件。
+- 本仓库**不包含** Live2D Cubism SDK。SDK 的使用规则以 Live2D 官方许可为准。
+- 本仓库是**非官方同人作品**，与深度求索（DeepSeek）无隶属或背书关系。
+- 本仓库的**代码**采用 PolyForm Noncommercial License 1.0.0：仅限非商业用途；商用需单独取得授权。
+- 角色、模型、SDK 及其他第三方素材的权利归各自作者所有；本仓库的代码许可**不覆盖**这些内容。

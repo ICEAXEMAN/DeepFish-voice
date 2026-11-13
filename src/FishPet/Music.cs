@@ -37,12 +37,23 @@ internal sealed class Music : IDisposable
     private int generation, failures;
     private readonly List<DateTime> beatTimes = [];
     private readonly TempoTracker tempo = new();
+    // 拍点同步（本机加，2026-11-12）：听一整段低音起音曲线估速度和相位，舞步按它的「拍位置」摆（Beat.cs）。
+    private readonly BeatTracker beats = new();
+    private double lastOnsetBase;
     private double rms, bass, fluxAverage = .012, soundFor, level, bassSmooth, warmup;
     private readonly Dictionary<string, double> apps = new(StringComparer.OrdinalIgnoreCase); // 在出声的应用 → 电平
+    // 每个应用上一次“明显出声”（≥ 0.01）的时刻：看视频时声音忽大忽小，会话表里那一秒可能一个都没有，
+    // 只看这一秒就会把“网易云开着 + 没人出声”当成真的在放歌（2026-11-12，用户在 B 站看视频时她跳了）。
+    private readonly Dictionary<string, DateTime> appHeard = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan OthersQuietFor = TimeSpan.FromSeconds(30);
     private DateTime lastLineAt = DateTime.MinValue, lastStartAt = DateTime.MinValue, lastSoundAt = DateTime.MinValue;
     private TimeSpan lastRead;
 
-    internal Music(bool wanted) => this.wanted = wanted;
+    internal Music(bool wanted)
+    {
+        this.wanted = wanted;
+        beats.Log = Places.Log;
+    }
 
     private static string Script => Path.Combine(Places.Root, "audio", "probe.ps1");
 
@@ -51,11 +62,20 @@ internal sealed class Music : IDisposable
         get { lock (gate) return playing; }
     }
 
-    // 现在的节拍速度（日志用）。
+    // 现在的节拍速度：锁定了节拍就用它，没有就用老的估法。
     internal double Tempo
     {
-        get { lock (gate) return tempo.Bpm; }
+        get { lock (gate) return beats.Locked ? beats.Bpm : tempo.Bpm; }
     }
+
+    // ---- 拍点同步（舞步用）----
+    // 单调时钟的现在（秒），和节拍追踪用的是同一个钟。
+    internal double Now => clock.Elapsed.TotalSeconds;
+    internal bool BeatLocked { get { lock (gate) return beats.Locked; } }
+    internal double BeatClarity { get { lock (gate) return beats.Clarity; } }
+    internal double BeatPeriod { get { lock (gate) return beats.Period; } }
+    // 某一时刻的拍位置（整数 = 一拍落下，序号奇偶由追踪器定）；还没对上相位是 NaN。
+    internal double BeatPosition(double t) { lock (gate) return beats.Position(t); }
 
     // 最近这几秒里拍子够不够密：够密才像音乐，够密才值得跟着跳。
     // 说话、播客之类也有声音，但拍子零碎，这时她只慢慢晃，不会乱蹦。
@@ -86,7 +106,8 @@ internal sealed class Music : IDisposable
     //    设备整体却在 0.04~0.17 之间起伏），以前“固定要最响的一半”会一直判成没在放。
     // ② 连会话都没有（DirectSound「主声音驱动程序」）时：白名单软件在跑、别的软件都没出声，
     //    也算它在放；有别的软件在响就不算，免得拿视频、游戏的声音乱跳。
-    internal bool AppPlaying(string whitelist)
+    // keep：已经在跳的时候门槛放低（0.015 / 20%），免得音量一小起一落就一停一跳（上游本机修，2026-11-12，与本机 25% 阈值合并）。
+    internal bool AppPlaying(string whitelist, bool keep = false)
     {
         if (string.IsNullOrWhiteSpace(whitelist)) return false;
         lock (gate)
@@ -99,11 +120,20 @@ internal sealed class Music : IDisposable
                 if (name.Length == 0) continue;
                 if (apps.TryGetValue(name, out var level) && level > mine) mine = level;
             }
-            if (mine >= .03 && mine >= top * .25) return true;
+            if (mine >= (keep ? .015 : .03) && mine >= top * (keep ? .2 : .25)) return true;
+            // DirectSound「主声音驱动程序」下，网易云的会话电平会低到发死（2026-11-12 实测：放歌时一直是 0.018~0.020，
+            // 同时 oopz 之类的会话有 0.1 以上），按“够响、占最响的几分之几”永远过不了。
+            // 采集器只报“活动中”的会话，暂停/停止后几秒内它就从列表里消失了，所以有会话、电平不是纯噪声（≥ 0.008，
+            // 已经在跳时 ≥ 0.005）就当它在放；放歌软件的声音当没当主角，交给设备整体的节拍检测去判断。
+            if (mine >= (keep ? .005 : .008)) return true;
             if (mine > 0) return false;
             // 没有它的会话：只有“白名单软件在跑 + 除了白名单没人出声”才当它在放。
             foreach (var (name, level) in apps)
                 if (level >= .03 && !Listed(name, whitelist)) return false;
+            // 别的软件最近 30 秒内出过声（视频、聊天、游戏）：这一秒碰巧没响也不算，白名单软件开着不等于在放歌。
+            var now = DateTime.UtcNow;
+            foreach (var (name, at) in appHeard)
+                if (now - at < OthersQuietFor && !Listed(name, whitelist)) return false;
             RefreshProcesses();
             foreach (var raw in whitelist.Split([',', '，', ';'], StringSplitOptions.RemoveEmptyEntries))
                 if (Running.Contains(raw.Trim())) return true;
@@ -140,6 +170,12 @@ internal sealed class Music : IDisposable
     internal bool Rhythmic
     {
         get { lock (gate) return RecentBeats() >= 3; }
+    }
+
+    // 最近 8 秒的拍点数（停下来的原因日志用）。
+    internal int BeatCount
+    {
+        get { lock (gate) return RecentBeats(); }
     }
 
     private int RecentBeats()
@@ -248,23 +284,29 @@ internal sealed class Music : IDisposable
                     if (string.IsNullOrWhiteSpace(name) || item[1].ValueKind != JsonValueKind.Number) continue;
                     double value = item[1].GetDouble();
                     apps[name] = apps.TryGetValue(name, out var before) ? Math.Max(before, value) : value;
+                    if (value >= .01) appHeard[name] = DateTime.UtcNow;
                 }
             }
 
         double loudness = rmsValue.GetDouble();
-        double low = 0;
-        int used = 0;
+        double low = 0, low3 = 0;
+        int used = 0, used3 = 0;
         // 只看最低两段（大约 0~3kHz）：鼓、贝斯、军鼓的身子在这里；踩镲、镲片在高频，
         // 把它们算进来会让人误以为拍子在加倍（70 BPM 的歌听成 140）。
+        // 节拍追踪多看一段（最低三段）：拿一段真实录音比过，起音对比最清楚（本机，2026-11-12）。
         if (root.TryGetProperty("bands", out var bands) && bands.ValueKind == JsonValueKind.Array)
             foreach (var band in bands.EnumerateArray())
             {
-                if (used >= 2) break;
+                if (used3 >= 3) break;
                 if (band.ValueKind != JsonValueKind.Number) continue;
-                low += band.GetDouble();
-                used++;
+                double value = band.GetDouble();
+                if (used < 2) { low += value; used++; }
+                low3 += value; used3++;
             }
         low = used > 0 ? low / used : 0;
+        double onsetBase = Math.Sqrt(Math.Max(0, used3 > 0 ? low3 / used3 : 0));
+        beats.Add(clock.Elapsed.TotalSeconds, Math.Max(0, onsetBase - lastOnsetBase));
+        lastOnsetBase = onsetBase;
 
         var now = DateTime.UtcNow;
         rms = loudness;
@@ -322,6 +364,7 @@ internal sealed class Music : IDisposable
             {
                 playing = false;
                 soundFor = 0;
+                beats.Reset();
                 Places.Log("音乐停了");
             }
             if (playing && DateTime.UtcNow - lastLineAt > LineTimeout)
@@ -355,11 +398,19 @@ internal sealed class Music : IDisposable
     internal void Start() => Spawn();
 
     // 采集器自己走了（改脚本、被杀）时再拉一次。
+    // 起来没多久就退出的算失败：失败次数越多，下一次重启等得越久（最多 30 秒），别每帧重启一次（2026-11-12 修，
+    // 11-11 出过 1 秒 263 次的重启风暴）。退避中拉不起来的，每帧回来再试，等到时间了就起。
     internal void Watch()
     {
-        bool dead;
-        lock (gate) dead = probe is { HasExited: true };
-        if (dead) Restart("进程退出了");
+        bool dead, quick = false;
+        lock (gate)
+        {
+            if (disposed || !wanted) return;
+            dead = probe is { HasExited: true };
+            if (dead && DateTime.UtcNow - lastStartAt < TimeSpan.FromSeconds(8)) { failures++; quick = true; }
+            if (!dead && probe == null && failures > 0) { Spawn(); return; } // 退避期里没起成的：到点再起（Spawn 自己会看退避）
+        }
+        if (dead) Restart(quick ? "进程起来没多久就退出了（连续 " + failures + " 次）" : "进程退出了");
     }
 
     public void Dispose()
