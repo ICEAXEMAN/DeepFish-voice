@@ -237,6 +237,10 @@ internal sealed partial class Body
     private readonly Action<string> send;
     private readonly Dictionary<string, (string Id, double Value)[]> channels = [];
     // 跳舞时的表情单独放：不算「摆着姿势」，否则跳舞一换脸就判定成被摆姿势、舞蹈自己把自己停下（本机修，2026-11-12）
+    // 哪些脸上的表情会把两只眼睛整个换掉。这几个同时只能开一个：换一个就把前一个关掉
+    // （用户 2026-11-13 报的：两个眼睛表情叠着开，脸上只看得到先开的那个，再点后面那个就像没反应）。
+    private static readonly string[] EyeOverlays = ["＞＜", "爱心眼", "圈圈眼", "屑屑眼"];
+
     private (string Id, double Value)[]? danceFace;
     private readonly HashSet<string> overlays = [];
     private Dictionary<string, double> shown = [];
@@ -351,7 +355,14 @@ internal sealed partial class Body
             if (word.Reset) Relax();
             foreach (var place in word.Clear ?? []) channels.Remove(place);
             if (word.Channel is { } channel) channels[channel] = word.Hold!;
-            if (word.Overlay is { } overlay && overlays.Add(overlay)) send($"exp {overlay} 1");
+            if (word.Overlay is { } overlay)
+            {
+                // 眼睛类表情互斥：先关掉另一个，再开这个（用户 2026-11-13）
+                if (EyeOverlays.Contains(overlay))
+                    foreach (var other in EyeOverlays)
+                        if (other != overlay && overlays.Remove(other)) send($"exp {other} 0");
+                if (overlays.Add(overlay)) send($"exp {overlay} 1");
+            }
             if (word.HandDown) PutHandDown();
             if (word.Hand is { } up && hand != up) { PutHandDown(); hand = up; send($"motion {up.On}"); }
             foreach (var (id, keys) in move ?? []) send($"anim {id} {keys}");
