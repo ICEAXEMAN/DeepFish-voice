@@ -65,6 +65,7 @@ public partial class MainWindow : Window
         public List<string> Favs { get; set; } = [];
         public bool Pin { get; set; }
         public bool More { get; set; }
+        public bool Taskbar { get; set; } // 在任务栏显示面板（默认关）：开了任务栏上有个按钮，面板有最小化键；点 X 仍是收回小托盘
 
         private static string File_ => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "ui.json"));
         internal static Ui Load()
@@ -91,6 +92,7 @@ public partial class MainWindow : Window
         MaxHeight = Math.Min(900, SystemParameters.WorkArea.Height - 8);
         ui = Ui.Load();
         Topmost = ui.Pin; PinButton.IsChecked = ui.Pin;
+        SwTaskbar.IsChecked = ui.Taskbar; ApplyTaskbar();
         MoreToggle.IsChecked = ui.More; MorePanel.Visibility = ui.More ? Visibility.Visible : Visibility.Collapsed;
 
         shapeSeg = MakeSeg(ShapeHost, ShapeNames, "shape", i => Queue("shape", ShapeIds[i]));
@@ -98,6 +100,16 @@ public partial class MainWindow : Window
         staySeg = MakeSeg(StayHost, StayNames, "stay", i => Queue("bubble_seconds", StayValues[i]));
         qualitySeg = MakeSeg(QualityHost, QualityNames, "quality", i => Queue("tex_scale", QualityValues[i]));
         voiceSeg = MakeSeg(VoiceHost, VoiceNames, "voice_pack", i => Queue("voice_pack", VoiceIds[i]));
+        // 冷静、沉稳这套录音不随插件打包了（用户 2026-11-15）：选项留着，但是点不动，旁边说清楚为什么
+        if (!CalmVoiceHere())
+        {
+            var calm = voiceSeg.Buttons[1];
+            calm.IsEnabled = false;
+            calm.Opacity = 0.45;
+            calm.Cursor = Cursors.No;
+            calm.ToolTip = "更多声线正在施工中……";
+            VoiceHint.Visibility = Visibility.Visible;
+        }
         BuildSections();
 
         flush.Tick += async (_, _) => await Flush();
@@ -125,18 +137,24 @@ public partial class MainWindow : Window
         CloseButton.Click += (_, _) => Hide();
         // 右上角的叉、Esc、Alt+F4、系统把它关掉：都只把面板收回托盘，控制台不退出，桌宠更不会跟着退（用户 2026-11-13）
         Closing += (_, e) => { if (!AllowClose) { e.Cancel = true; Hide(); } };
+        MinButton.Click += (_, _) => WindowState = WindowState.Minimized;
+        SwTaskbar.Click += (_, _) => { ui.Taskbar = SwTaskbar.IsChecked == true; ui.Save(); ApplyTaskbar(); Notice(ui.Taskbar ? "任务栏上会显示面板" : "不再在任务栏显示"); };
         PinButton.Click += (_, _) => { ui.Pin = PinButton.IsChecked == true; Topmost = ui.Pin; ui.Save(); Notice(ui.Pin ? "已固定在最前面" : "取消固定"); };
         MoreToggle.Click += (_, _) => { ui.More = MoreToggle.IsChecked == true; MorePanel.Visibility = ui.More ? Visibility.Visible : Visibility.Collapsed; ui.Save(); };
         Header.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) { moved = true; try { DragMove(); } catch { } } };
         KeyDown += OnKeyDown;
-        SayButton.Click += async (_, _) => await SaySomething();
-        SayBox.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await SaySomething(); } };
-        SayBox.TextChanged += (_, _) => SayHint.Visibility = SayBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         ResetButton.Click += async (_, _) => await ResetAll();
         UpdateButton.Click += async (_, _) => await CheckUpdate();
         SearchBox.TextChanged += (_, _) => ApplyFilter();
         SearchClear.Click += (_, _) => { SearchBox.Clear(); SearchBox.Focus(); };
         SizeChanged += (_, _) => { if (!moved && IsVisible) Anchor(); else if (IsVisible) KeepOnScreen(); };
+    }
+
+    // 在任务栏显示面板：开了才有任务栏按钮和最小化键；关着（默认）时和以前完全一样。
+    private void ApplyTaskbar()
+    {
+        ShowInTaskbar = ui.Taskbar;
+        MinButton.Visibility = ui.Taskbar ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
@@ -197,8 +215,8 @@ public partial class MainWindow : Window
             s = await State(); Check("再点关掉脸红", s is { } h2 && !Has(h2, "overlays", "脸红"));
             var load = (ToggleButton)mainChips["RawExp:加载"]; load.IsChecked = true; Click(load);
             s = await State(); Check("原版表情：加载", s is { } h3 && Has(h3, "raw", "加载"));
-            ((Button)mainChips["Cue:歪头"]).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-            ((Button)mainChips["Idle:哼歌"]).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            ((ButtonBase)mainChips["Cue:歪头"]).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            ((ButtonBase)mainChips["Cue:看过来"]).RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
             await Task.Delay(500);
             Click(ResetButton);
             s = await State(); Check("恢复平常", s is { } h4 && !Has(h4, "raw", "加载") && !Has(h4, "overlays", "脸红") && !load.IsChecked.GetValueOrDefault());
@@ -245,6 +263,7 @@ public partial class MainWindow : Window
     {
         if (!IsVisible)
         {
+            WindowState = WindowState.Normal;
             moved = false;
             Opacity = 0;
             if (SkitSignature() != skitSignature) BuildSections(); // skits.txt 改过：小剧场按钮跟着换
@@ -422,6 +441,9 @@ public partial class MainWindow : Window
     private void Touch(string key) => touched[key] = DateTime.UtcNow;
     private bool Fresh(string key) => !touched.TryGetValue(key, out var at) || (DateTime.UtcNow - at).TotalSeconds > 4;
 
+    // 冷静、沉稳的录音在不在插件里（用户 2026-11-15 把它挪出去单独打包放到桌面了）
+    private static bool CalmVoiceHere() => Pet.Root.Length > 0 && Directory.Exists(Path.Combine(Pet.Root, "voice_calm"));
+
     // ---- 滑动条：刻度、数值气泡、整条按住拖 ----
 
     // 小动作间隔不按秒线性排（15–600 秒里常用的都挤在左边一小截），改成一档一档的常用值，短的档分得细、长的档分得粗
@@ -520,14 +542,6 @@ public partial class MainWindow : Window
             answer = await Pet.Call("show");
         }
         if (answer is null) { ShowHint.Text = "连不上桌宠"; Notice("连不上桌宠，等她回来再试"); }
-    }
-
-    private async Task SaySomething()
-    {
-        var text = SayBox.Text.Trim();
-        if (text.Length == 0) return;
-        SayBox.Clear();
-        await Pet.Say(text);
     }
 
     // 底部的小提示：点了什么、有没有连上，几秒后自己消失
@@ -640,7 +654,7 @@ public partial class MainWindow : Window
     {
         string tip = (item.Tip.Length > 0 ? item.Tip + "\n" : "") + "右键：" + (ui.Favs.Contains(item.Key) ? "移出常用" : "加入常用");
         FrameworkElement chip;
-        if (item.Kind is Kind.Face or Kind.RawExp)
+        if (item.Kind is Kind.Face or Kind.RawExp or Kind.Hold)
         {
             var toggle = new ToggleButton { Content = item.Label, Style = (Style)FindResource("Chip") };
             toggle.Click += async (_, _) => await Run(item, toggle);
@@ -667,7 +681,7 @@ public partial class MainWindow : Window
         {
             case Kind.Cue: Notice("▶ " + item.Label); result = await Pet.Panel(new { op = "cue", cue = item.Arg }); break;
             case Kind.Pose: Notice("▶ " + item.Label); result = await Pet.Panel(new { op = "pose", cue = item.Arg }); break;
-            case Kind.Face:
+            case Kind.Face or Kind.Hold:
                 Touch("tg:" + item.State); Notice((on ? "开：" : "关：") + item.Label);
                 result = await Pet.Panel(new { op = "cue", cue = (on ? "" : "-") + item.Arg }); break;
             case Kind.RawExp:
@@ -689,7 +703,7 @@ public partial class MainWindow : Window
             if (chip is ToggleButton toggle) toggle.IsChecked = !on;
             return;
         }
-        if (item.Kind is Kind.Cue or Kind.Face or Kind.RawExp) SyncToggles(result.Value, force: true);
+        if (item.Kind is Kind.Cue or Kind.Hold or Kind.Face or Kind.RawExp) SyncToggles(result.Value, force: true);
     }
 
     private async Task ResetAll()
@@ -732,11 +746,11 @@ public partial class MainWindow : Window
     private void SyncToggles(JsonElement state, bool force = false)
     {
         string[] List(string key) => state.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Array ? v.EnumerateArray().Select(e => e.GetString() ?? "").ToArray() : [];
-        var overlays = List("overlays"); var raw = List("raw");
+        var overlays = List("overlays"); var raw = List("raw"); var held = List("held");
         foreach (var (item, button, _) in toggles)
         {
             if (!force && !Fresh("tg:" + item.State)) continue;
-            button.IsChecked = (item.Kind == Kind.Face ? overlays : raw).Contains(item.State);
+            button.IsChecked = item.Kind == Kind.Hold ? held.Contains(item.Arg) : (item.Kind == Kind.Face ? overlays : raw).Contains(item.State);
         }
     }
 
@@ -869,7 +883,7 @@ public partial class MainWindow : Window
             if (Fresh("tts_enabled")) SwTts.IsChecked = B("tts_enabled");
             if (Fresh("tts_autostart")) SwTtsAuto.IsChecked = B("tts_autostart");
             if (Fresh("voice_enabled")) { SwVoice.IsChecked = B("voice_enabled"); ApplyVoiceVisibility(); }
-            if (Fresh("voice_pack")) SetSeg(voiceSeg, T("voice_pack") == "calm" ? 1 : 0);
+            if (Fresh("voice_pack")) SetSeg(voiceSeg, T("voice_pack") == "calm" && voiceSeg.Buttons[1].IsEnabled ? 1 : 0);
             if (!dressBuilt) { var all = A("clothes").Concat(A("accessories")).ToArray(); if (all.Length > 0) BuildDress(all); }
             var wearing = A("wearing");
             foreach (var (label, chip) in chips) if (Fresh("dress:" + label)) chip.IsChecked = wearing.Contains(label);

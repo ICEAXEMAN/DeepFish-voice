@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace FishPet;
 
@@ -63,8 +64,20 @@ internal static class Places
         return AppContext.BaseDirectory;
     }
 
+    private static int logWrites;
+
     internal static void Log(string message)
     {
-        try { File.AppendAllText(ErrorLog, DateTime.Now.ToString("s") + " " + message + Environment.NewLine); } catch { }
+        try
+        {
+            File.AppendAllText(ErrorLog, DateTime.Now.ToString("s") + " " + message + Environment.NewLine);
+            // 日志别无限涨：每写一百条看一眼大小，超过 1.5MB 就丢掉前一半
+            if (Interlocked.Increment(ref logWrites) % 100 == 0 && new FileInfo(ErrorLog).Length > 1_500_000)
+            {
+                var lines = File.ReadAllLines(ErrorLog);
+                File.WriteAllLines(ErrorLog, lines[(lines.Length / 2)..]);
+            }
+        }
+        catch { }
     }
 }

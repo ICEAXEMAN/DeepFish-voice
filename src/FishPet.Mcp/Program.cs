@@ -33,9 +33,22 @@ return 0;
 internal sealed class Relay(string? givenPipe)
 {
     private const string Ours = "fishpet-relay-";
+    // 联接指向同一个文件夹时按真实路径算管道名，和 FishPet 的 Tools.RealPath 保持一致（本机加，2026-11-14）
+    private static string RealPath(string path)
+    {
+        try
+        {
+            var start = new DirectoryInfo(path.TrimEnd('\\', '/'));
+            for (var dir = start; dir != null; dir = dir.Parent)
+                if (dir.ResolveLinkTarget(true) is { } target)
+                    return Path.GetFullPath(Path.Combine(target.FullName, Path.GetRelativePath(dir.FullName, start.FullName))).TrimEnd('\\', '/');
+        }
+        catch { }
+        return path.TrimEnd('\\', '/');
+    }
     private readonly string pipeName = givenPipe ?? "FishPet." + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "|" +
-        Path.GetFullPath(AppContext.BaseDirectory).TrimEnd('\\', '/').ToUpperInvariant()))).Substring(0, 20);
+        RealPath(Path.GetFullPath(AppContext.BaseDirectory)).ToUpperInvariant()))).Substring(0, 20);
     private readonly Stream output = Console.OpenStandardOutput();
     private readonly SemaphoreSlim writing = new(1, 1);
     // What she was asked and has not answered (id as JSON → method): answered for her if she goes.

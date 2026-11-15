@@ -39,6 +39,14 @@ internal sealed partial class Updates(string root, Action<string> log)
             request.Headers.UserAgent.ParseAdd("FishPet");
             request.Headers.Accept.ParseAdd("application/vnd.github+json");
             using var response = await Http.SendAsync(request);
+            // 本地合并版的提交只在这台电脑上：GitHub 上没有它，compare 会回 404。别写成“查更新失败”，
+            // 明确告诉用户这一份是本地合并的，自动比较不了（用户 2026-11-15 合并后加的）。
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                log("查更新：GitHub 上没有这个提交（本地合并版），跳过自动比较");
+                LastCheck = new Checked("local", 0, [], "这一份是本地合并版：GitHub 上没有这个提交，没法自动比较；要看上游新提交，在插件文件夹里 git fetch 后手动合。", at);
+                return LastCheck;
+            }
             if (!response.IsSuccessStatusCode)
             {
                 log("查更新：GitHub 回了 " + (int)response.StatusCode);

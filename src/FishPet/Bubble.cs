@@ -102,7 +102,8 @@ internal sealed class BubbleWindow : Window
     internal void Place()
     {
         if (!IsVisible) return;
-        var area = SystemParameters.WorkArea;
+        // 按她头顶那一点所在的屏来夹（issue #3）：以前只认主屏，她在副屏时气泡会被夹回主屏
+        var area = Monitors.At(pet.Left + pet.Width / 2, pet.Top + headTop(), Monitors.Scale(pet)).Work;
         double left = pet.Left + pet.Width / 2 - ActualWidth / 2, top = pet.Top + headTop() - ActualHeight + 6;
         Left = Math.Clamp(left, area.Left, Math.Max(area.Left, area.Right - ActualWidth));
         Top = Math.Clamp(top, area.Top, Math.Max(area.Top, area.Bottom - ActualHeight));

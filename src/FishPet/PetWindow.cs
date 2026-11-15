@@ -131,11 +131,12 @@ internal sealed partial class PetWindow : Window
     private readonly List<Happening> happenings = [];
     private long sequence;
 
-    internal PetWindow(Settings settings, string? model, bool test, string? pipe = null)
+    internal PetWindow(Settings settings, string? model, bool test, string? pipe = null, bool manual = false)
     {
         this.settings = settings; this.model = model; this.test = test;
         Condition.Birthday = settings.Birthday; // 生日那天的台词、小剧场（mutter.txt、skits.txt 里的 @生日）
-        standby = settings.StartHidden && !test;
+        manualStart = manual;
+        standby = settings.StartHidden && !test && !manual; // 手动叫出来的（桌面图标）不管「启动时先收起」，直接露面
         Title = "大肥鱼";
         WindowStyle = WindowStyle.None; AllowsTransparency = true; Background = Brushes.Transparent; ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false; ShowActivated = false; Topmost = true;
@@ -184,6 +185,7 @@ internal sealed partial class PetWindow : Window
                 Recorder.Init(Dispatcher, RecordLayout);
             }
             server = new ControlServer(Execute, pipe);
+            server.WakeRequested = () => Dispatcher.BeginInvoke(() => { if (Wake(greet: true)) NoAgentHint(); });
             try { api = HttpApi.Start(Places.ApiFile, test ? 0 : HttpApi.DefaultPort, (name, args, token) => { if (!HttpApi.Passive.Value) lastHttp = DateTime.UtcNow; return Execute(name, args, token); }); }
             catch (Exception error) { Places.Log("网页接口开不起来：" + error.Message); }
             // A newer plugin on GitHub, looked for now and twice a day; the agent hears of it with its next tool (Execute).
@@ -295,8 +297,23 @@ internal sealed partial class PetWindow : Window
         image.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300)));
         behavior.Show("问候", DateTime.UtcNow);
         body.Apply("抚胸");
-        WelcomeSoon(); // 新装第一次出场：自己说一段欢迎（Welcome.cs）
+        WelcomeSoon(); // 全新安装的第一次出场，接着说几句欢迎（只说这一次）
+        if (manualStart) NoAgentHint();
     }
+
+    // 手动叫出来（桌面图标）时，几秒后还没有 Agent 连上，就提一句，免得用户以为她坏了。
+    private readonly bool manualStart;
+    private async void NoAgentHint()
+    {
+        try
+        {
+            await Task.Delay(3500);
+            if (exiting || standby || (server?.Connections ?? 0) > 0) return;
+            _ = InTurn(() => { if (!exiting && (server?.Connections ?? 0) == 0) SayLine("〔歪一下头:右 微笑〕现在还没连上 Agent 哦~", null); return Task.CompletedTask; }, CancellationToken.None);
+        }
+        catch (Exception error) { Places.Log("没连上 Agent 的提示出错：" + error.Message); }
+    }
+
 
     private void ApplySize()
     {
@@ -326,11 +343,21 @@ internal sealed partial class PetWindow : Window
         Clamp();
     }
 
+    // 她脸的中间（DIP）：按这一点认她在哪块屏上（issue #3）。不用窗口中心：身子可以沉到任务栏下面、拖到屏外，脸才是她“在”的地方。
+    private Point FaceCenter() => new(Left + Width / 2, Top + Height * (Shape.HeadTop + Shape.HeadAt + .12) / 2);
+
+    // 她脸所在那块屏（不在任何屏上就取最近的）：整块屏和去掉任务栏的可用区域。
+    private (Rect Screen, Rect Work) Here()
+    {
+        var face = FaceCenter();
+        return Monitors.At(face.X, face.Y, Monitors.Scale(this));
+    }
+
     // She may sink behind the taskbar, but her face stays out.
     private void Clamp()
     {
         if (test) return;
-        var area = SystemParameters.WorkArea;
+        var area = Here().Work; // 放下时脸在哪块屏，就留在哪块屏里（以前只认主屏，副屏上会被拽回主屏）
         var shape = Shape;
         var bounds = new Rect(Width * shape.Side, Height * shape.HeadTop, Width * (1 - 2 * shape.Side), Height * (shape.HeadAt + .12 - shape.HeadTop));
         if (!settings.KeepOnScreen)
@@ -360,7 +387,8 @@ internal sealed partial class PetWindow : Window
         int stage = args.GetProperty("stage").GetInt32();
         if (stage != 0 && Wake()) coaxWoke = stage is >= 1 and <= 4; // 收着时被叫出来演哄睡：演完再自己收回去
         YieldMutter(); // 哄睡演出也优先：嘀咕让位
-        coaxStage4Text = args.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null; // 第四层台词（AI 实时生成）
+        coaxStage4Text = null; // 演示用固定的那句；到点的第四层台词来自 alarms.txt（Ring 里设置），不再接受 Agent 实时生成传入（用户 2026-11-12 去掉）
+        string? skitName = args.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null; // 只有演示小剧场（stage 6）用它
         if (stage == 0)
         {
             CoaxReturn();
@@ -370,7 +398,7 @@ internal sealed partial class PetWindow : Window
         if (stage == 6) // 演示待机小剧场：text 给小剧场名，不给就随机一个
         {
             if (skits.Count == 0) return Tools.Error("skits.txt 里还没有小剧场。");
-            var pick = coaxStage4Text != null && skits.ContainsKey(coaxStage4Text) ? coaxStage4Text : skits.Keys.ElementAt(random.Next(skits.Count));
+            var pick = skitName != null && skits.ContainsKey(skitName) ? skitName : skits.Keys.ElementAt(random.Next(skits.Count));
             PlaySkit(pick, force: true);
             return Tools.Text(new { stage = 6, skit = pick, all = skits.Keys.ToArray() });
         }
@@ -402,7 +430,7 @@ internal sealed partial class PetWindow : Window
     private (double Left, double Top)? RunStage(int stage, int fadeInMs = 220)
     {
         coaxEpoch++; // 正在归位的话作废
-        var area = SystemParameters.WorkArea;
+        var area = Here().Work; // 在她现在这块屏的正中演，别跑回主屏（先取，下面换体型、大小会挪动脸的位置）
         double targetLeft, targetTop;
         switch (stage)
         {
@@ -460,7 +488,7 @@ internal sealed partial class PetWindow : Window
         await Task.Delay(350); // 睁眼后停顿一下
         body.Apply("大前倾"); // 身子猛地向前倾
         await Task.Delay(1000);
-        SayLine(coaxStage4Text ?? "为 什 么 还 没 睡 ？", null, 2); // 每字 0.5 秒（台词由 AI 实时生成）
+        SayLine(coaxStage4Text ?? "为 什 么 还 没 睡 ？", null, 2); // 每字 0.5 秒（第四层演示用固定的那句）
     }
 
     // 归位（用户 2026-11-13 改）：先快速鞠躬淡出退场，趁看不见恢复原来的体型、大小、视线跟随，
@@ -603,10 +631,22 @@ internal sealed partial class PetWindow : Window
         text.Split([' ', '　', '、', '，', ','], StringSplitOptions.RemoveEmptyEntries).Where(name => PetProps.Names.Contains(name)).Distinct().ToArray();
 
     // 固定台词的录音包（本机加，2026-11-10）：second = voice\，calm = voice_calm\。切换时重新读索引，不用重启。
+    // 冷静、沉稳那套现在不随插件打包（用户 2026-11-15 让挪出去，压缩包放在桌面）：文件夹不在就当没有，
+    // 控制面板里的选项留着但点不动；真有人绕过去让她切，也直接回一句为什么，不假装切好了。
+    internal const string CalmMissing =
+        "冷静、沉稳这套录音这次没随插件打包（在桌面的「大肥鱼_冷静语音包」压缩包里）。要用的话，把压缩包里的 voice_calm 文件夹整个放回插件目录（和 voice 并排），重启桌宠就能切了。";
+    private static bool CalmPackHere() => Directory.Exists(Path.Combine(Places.Root, "voice_calm"));
+
     private void LoadVoicePack()
     {
+        if (settings.VoicePack == "calm" && !CalmPackHere())
+        {
+            // 文件夹被挪走了：别一直挂着 calm（那样每句都得回退去找 voice，面板却还显示冷静）
+            settings.VoicePack = "second";
+            settings.Save();
+            Places.Log("voice_calm 不在，语音包退回 second");
+        }
         var folder = Path.Combine(Places.Root, settings.VoicePack == "calm" ? "voice_calm" : "voice");
-        if (settings.VoicePack == "calm" && !Directory.Exists(folder)) folder = Path.Combine(Places.Root, "voice");
         voicePack = Voice.Load(folder);
         Places.Log($"语音包：{(voicePack == null ? "没有（只说话）" : $"{voicePack.Count} 条")}（{settings.VoicePack}）");
     }
@@ -840,8 +880,7 @@ internal sealed partial class PetWindow : Window
     private void UpdateCut()
     {
         if (!IsVisible || test) return;
-        var work = SystemParameters.WorkArea;
-        var monitor = new Rect(0, 0, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
+        var (monitor, work) = Here(); // 她在哪块屏，就躲哪块屏的任务栏（以前只认主屏，副屏的任务栏不裁）
         var window = new Rect(Left, Top, Width, Height);
         double left = work.Left > monitor.Left ? Math.Clamp(work.Left - window.Left, 0, window.Width) : 0;
         double top = work.Top > monitor.Top ? Math.Clamp(work.Top - window.Top, 0, window.Height) : 0;
@@ -1505,6 +1544,8 @@ internal sealed partial class PetWindow : Window
                         if (!exiting) SayLine(next, file != null ? PlayVoice(file) : null);
                     }, CancellationToken.None);
                 var note = Heard(bubbles);
+                // 兜底切过斜杠就说一声：不然模型下次照样写、永远不知道（本机加，2026-11-14）
+                if (Line.HasSlashBreak(text)) note += "这句里的“／”或“ / ”我按换行分成了几个气泡；下次一句一行，直接换行，别写斜杠。";
                 return Tools.Text(note.Length == 0 ? new { started = true, bubbles = bubbles.Count, said = Body.Strip(text) }
                     : (object)new { started = true, bubbles = bubbles.Count, said = Body.Strip(text), note });
             case "look_in_mirror":
@@ -1602,6 +1643,7 @@ internal sealed partial class PetWindow : Window
                 if (args.TryGetProperty("voice_pack", out var voicePackArg) && voicePackArg.ValueKind == JsonValueKind.String)
                 {
                     var id = string.Equals(voicePackArg.GetString(), "calm", StringComparison.OrdinalIgnoreCase) ? "calm" : "second";
+                    if (id == "calm" && !CalmPackHere()) throw new ArgumentException(CalmMissing); // 这套录音不在，别假装切过去了
                     if (id != settings.VoicePack)
                     {
                         settings.VoicePack = id;
@@ -1793,7 +1835,7 @@ internal sealed partial class PetWindow : Window
             default:
                 throw new ArgumentException("没有这个操作：" + op);
         }
-        return Tools.Text(new { ok = true, overlays = body.Overlays.Except(poseOverlays).ToArray(), raw = panelRaw.ToArray(), hand = body.HandUp });
+        return Tools.Text(new { ok = true, overlays = body.Overlays.Except(poseOverlays).ToArray(), raw = panelRaw.ToArray(), hand = body.HandUp, held = body.HeldWords.ToArray() });
     }
 
     // 组合神情临时摆一下的收尾：只收回这次临时加的脸上表情和会保持的动作，之前开着的脸上表情不动。
@@ -1830,7 +1872,7 @@ internal sealed partial class PetWindow : Window
         music_dance = settings.MusicDance, music_apps = settings.MusicApps, dancing = Dancing,
         context_chat = settings.ContextChat, // 桌面实况总开关（本机加，2026-11-12）：DSH 的插件读它决定要不要看她前台、要不要搭话
         clothes = Outfit.Clothes.Select(item => item.Label).ToArray(), accessories = Outfit.Accessories.Select(item => item.Label).ToArray(),
-        overlays = body.Overlays.Except(poseOverlays).ToArray(), raw = panelRaw.ToArray(), hand = body.HandUp, // 托盘控制台用：脸上开着哪些表情、原版表情、手举着没有
+        overlays = body.Overlays.Except(poseOverlays).ToArray(), raw = panelRaw.ToArray(), hand = body.HandUp, held = body.HeldWords.ToArray(), // 托盘控制台用：脸上开着哪些表情、原版表情、手举着没有
         affection = AffectionState(), focus = FocusState(), memory = MemoryState(), // 亲密度、番茄钟、记忆条数（本机加，2026-11-08）
     };
 

@@ -116,10 +116,10 @@ internal sealed class Behavior
     internal Action? Ended { get; init; }
     // 每次待机小动作开始时，把动作名交出去（PetWindow 用来触发自言自语）。
     internal Action<string>? IdleStarted { get; set; }
-    // 用户写好的固定嘀咕文本（与待机小动作、小剧场三类平分概率，类内每条等权）。
+    // 用户写好的固定嘀咕文本（与待机小动作、小剧场三类按 35:35:30 分概率，类内按条件加权）。
     internal string[] TextIdleMoods { get; set; } = [];
     internal Action<string>? TextIdle { get; set; }
-    // 待机小剧场（skits.txt）：几句话加动作、临时道具组成的一小段，和待机小动作、固定嘀咕三类平分概率（见 Tick）。
+    // 待机小剧场（skits.txt）：几句话加动作、临时道具组成的一小段，和待机小动作、固定嘀咕三类按 35:35:30 分概率（见 Tick）。
     internal string[] SkitIdleMoods { get; set; } = [];
     internal Action<string>? SkitIdle { get; set; }
     // 她现在是不是因为在读、看、写而戴着眼镜（和主人用 dress 戴的不同）。
@@ -198,7 +198,8 @@ internal sealed class Behavior
     };
 
     // Measured on her without the headroom the window keeps above her for jumping.
-    private static string SmallZone(double x, double y) => y < .125 ? "head" : y < .215 ? (x is > .3 and < .7 ? "face" : "head")
+    // 脸的下边界 .215 → .245（用户 2026-11-14：点嘴巴、下巴会判成身体，右键也摸不到）：量过，下巴尖约在 .24，.245 刚好压在衣领上沿。
+    private static string SmallZone(double x, double y) => y < .125 ? "head" : y < .245 ? (x is > .3 and < .7 ? "face" : "head")
         : y is > .5 and < .6 && x is < .28 or > .74 ? "hand" : y is > .43 and < .62 ? "skirt"
         : y >= .62 && x is < .36 or > .62 ? "tail" : "body";
 
@@ -305,18 +306,17 @@ internal sealed class Behavior
         // 类内：小动作夜里犯困的权重高；嘀咕、小剧场按条件加权（不符合条件的这次不抽）；类里一条都抽不了就不算这一类。
         var texts = Quiet ? [] : Weighted(TextIdleMoods, TextWeight, local);
         var plays = Quiet ? [] : Weighted(SkitIdleMoods, SkitWeightOf, local);
-        // 超过 12 分钟没演小剧场：这一轮直接演，不再和别的待机动作抢（2026-11-10）
-        if (!Quiet && plays.Length > 0 && now - lastSkitAt > TimeSpan.FromMinutes(12))
-        {
-            SkitIdle?.Invoke(PickWeighted(plays));
-            return;
-        }
-        var kinds = new List<int>();
-        if (actions.Length > 0) kinds.Add(0);
-        if (texts.Length > 0) kinds.Add(1);
-        if (plays.Length > 0) kinds.Add(2);
+        // 三类的比例（用户 2026-11-14 改）：待机小动作 35、固定嘀咕 35、小剧场 30，也就是前两类合起来约 7 成、小剧场约 3 成。
+        // 某一类这次抽不了就不参加，剩下的按各自的比例分（比如没有小剧场可抽，小动作和嘀咕各一半）。
+        // 原来“超过 12 分钟没演小剧场就直接演”的规则去掉了；小剧场里按日期、时段、亲密度的加权不变。
+        var kinds = new List<(int Kind, int Weight)>();
+        if (actions.Length > 0) kinds.Add((0, 35));
+        if (texts.Length > 0) kinds.Add((1, 35));
+        if (plays.Length > 0) kinds.Add((2, 30));
         if (kinds.Count == 0) return;
-        switch (kinds[random.Next(kinds.Count)])
+        int roll = random.Next(kinds.Sum(kind => kind.Weight)), chosen = kinds[^1].Kind;
+        foreach (var (kind, weight) in kinds) { if (roll < weight) { chosen = kind; break; } roll -= weight; }
+        switch (chosen)
         {
             case 0:
                 int pick = random.Next(actions.Sum(name => IdleWeight(name, hour)));

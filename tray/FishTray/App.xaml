@@ -358,6 +358,28 @@
             </Setter>
         </Style>
 
+        <!-- 最小化（只有开了“在任务栏显示面板”才露出来） -->
+        <Style x:Key="MinDot" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Box" Width="28" Height="28" CornerRadius="14" Background="Transparent">
+                            <Path x:Name="Cross" Data="M0,0 L10,0" Stroke="{StaticResource SubBrush}" StrokeThickness="1.4"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentDimBrush}"/>
+                                <Setter TargetName="Cross" Property="Stroke" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- “更多设置” 整行 -->
         <Style x:Key="MoreRow" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>

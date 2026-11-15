@@ -72,6 +72,9 @@ internal sealed partial class Body
         ["斜眼"] = (_, s, _) => new("eyes", [("REyeSquint", .9 * s), ("LEyeSquint", .9 * s), ("EyeOpen", .7)]),
         ["眨单眼"] = (_, _, _) => new("eyes", [("ParamEyeLOpen", 0), ("EyeSmile", 1)]),
         ["单眨眼"] = (_, _, _) => new(Move: [("ParamEyeLOpen", "0:0 .2:-1 2.2:-1 2.35:0")]),
+        // 笑眼状态下的单眨眼：眼睛先摆成笑眼，再让一只眼皮 0.8 秒闭一下、同时向左歪一下头（本机加，2026-11-11）
+        ["快眨单眼"] = (_, _, _) => new(Channel: "eyes", Hold: [("EyeOpen", .45), ("EyeSmile", 1)],
+            Move: [("ParamEyeLOpen", "0:0 .14:-1 .6:-1 .8:0"), ("FaceAngleZ", "0:0 .14:12 .6:12 .8:0")]),
         ["挑眉"] = (_, s, _) => new("brows", [("ParamBrowLY", .6 * s), ("ParamBrowRY", .6 * s), ("BrowInnerUp", .4 * s)]),
         ["皱眉"] = (_, s, _) => new("brows", [("ParamBrowLY", -.8 * s), ("ParamBrowRY", -.8 * s), ("ParamBrowLAngle", -s), ("ParamBrowRAngle", -s)]),
         ["八字眉"] = (_, s, _) => new("brows", [("BrowInnerUp", s), ("ParamBrowLAngle", .6 * s), ("ParamBrowRAngle", .6 * s)]),
@@ -87,6 +90,8 @@ internal sealed partial class Body
         ["脸红"] = (_, _, _) => new(Overlay: "脸红"), ["黑脸"] = (_, _, _) => new(Overlay: "黑脸"),
         ["冷汗"] = (_, _, _) => new(Overlay: "流冷汗"), ["眼泪"] = (_, _, _) => new(Overlay: "流泪"),
         ["爱心眼"] = (_, _, _) => new(Overlay: "爱心眼"), ["圈圈眼"] = (_, _, _) => new(Overlay: "圈圈眼"),
+        // 加载：脸上转圈的“加载中”小图标（原版表情），思考一分钟的几个动作用（用户 2026-11-14）；-加载 收掉
+        ["加载"] = (_, _, _) => new(Overlay: "加载"),
         ["＞＜"] = (_, _, _) => new(Overlay: "＞＜"), ["><"] = (_, _, _) => new(Overlay: "＞＜"), ["屑屑眼"] = (_, _, _) => new(Overlay: "屑屑眼"),
         ["抚胸"] = (_, _, _) => new(Hand: HandToChest), ["竖手指"] = (_, _, _) => new(Hand: FingerUp),
         ["狗尾草"] = (_, _, _) => new(Hand: Grass), ["放下手"] = (_, _, _) => new(HandDown: true),
@@ -100,6 +105,8 @@ internal sealed partial class Body
             ("BrowInnerUp", Scale("0:0 .1:.5 .45:.5 .7:0", s))]),
         ["歪一下头"] = (a, s, _) => new(Move: [("FaceAngleZ", Scale("0:0 .2:12 .6:12 .9:0", s * Side(a)))]),
         ["晃头"] = (_, s, _) => new(Move: [("FaceAngleZ", Scale("0:0 .3:-10 .7:10 1.1:-8 1.5:6 2:0", s))]),
+        // 慢慢地左右歪头：左→右→左→回正，最后慢慢停下（本机加，2026-11-11，给摸头彩蛋第 1 句用）
+        ["慢歪头"] = (_, s, _) => new(Move: [("FaceAngleZ", Scale("0:0 1:8 2.2:-8 3.4:6 4.6:0", s))]),
         ["缩一下"] = (_, s, _) => new(Move: [("ViewSquash", Scale("0:0 .08:.05 .3:.01 .6:0", s)), ("FaceAngleY", Scale("0:0 .08:-8 .6:0", s))]),
         ["叹气"] = (_, _, _) => new(Move: [("LeanInput", "0:0 .8:5 1.8:-7 2.8:-6 3.5:0"), ("FaceAngleY", "0:0 .8:7 1.8:-9 2.8:-8 3.5:0"),
             ("ViewSquash", "0:0 .8:-.02 1.2:-.02 1.9:.03 2.8:.025 3.5:0"), ("EyeOpen", "0:0 .8:-.2 1.8:-.6 2.8:-.55 3.5:0"),
@@ -113,6 +120,10 @@ internal sealed partial class Body
         ["摇摆一"] = (_, s, _) => Dance(s, Enumerable.Repeat(.45, 12).ToArray(), [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1], false),
         // 摇摆二（用户，2026-11-08 改）：不再左右甩头，改成可爱的歪头、扭头、耸肩，跟着拍子一下一下颠，节奏是左右左右左右（用户改，比第一段慢：6 拍走完原来 8 拍的时长）。
         ["摇摆二"] = (_, s, _) => Groove(s, Enumerable.Repeat(.4 * 8 / 6, 6).ToArray(), [1, -1, 1, -1, 1, -1]),
+        // 小剧场「跳舞」专用的第一、第二阶段（本机加，2026-11-13，用户要的）：身体摆动幅度 -30%、速度放慢 30%（每拍拉长到 1/0.7 倍）。
+        // 另起名字、不动「摇摆一」「摇摆二」本身：放歌跳舞（DanceToBeat）和慢摇照旧。拉长后一句的时长见 skits.txt 里的停留秒数。
+        ["剧场摇摆一"] = (_, s, _) => Dance(s * .7, Enumerable.Repeat(.45, 12).ToArray(), [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1], false, 1 / .7),
+        ["剧场摇摆二"] = (_, s, _) => Groove(s * .7, Enumerable.Repeat(.4 * 8 / 6, 6).ToArray(), [1, -1, 1, -1, 1, -1], 1 / .7),
         // 慢摇（用户，2026-11-09 改）：不再用第一段的转身甩头，改成摇摆二的动作（歪头、扭头、耸肩、颠一下）接着往下做，
         // 从第二段停下的那一边（右）的下一拍（左）接着来，越摇越慢越小，渐渐停下。拍子和总长都没变（3.86 秒）。
         ["慢摇"] = (_, s, _) => Groove(s, [.7, .9, 1.1], [1, -.7, .4]),
@@ -122,10 +133,10 @@ internal sealed partial class Body
     // 一段舞：每一拍（hits）身体转到一边（正数转向屏幕左边，负数右边，绝对值是幅度），头往反方向转、反方向歪，
     // 头比身子晚 0.14 秒到，两头不是同一刻一起掉头，看着连贯；头还走一条小拱形（拍点低头、两拍中间抬头），就是点头。
     // gaps 是每一拍的长度（秒）；dip：同一边连着两拍时，两拍之间身体回弹一半（“顿”一下）。每条轨迹最后都回到 0。
-    private static Word Dance(double size, double[] beats, double[] hits, bool dip)
+    private static Word Dance(double size, double[] beats, double[] hits, bool dip, double stretch = 1)
     {
         // 整体速度降低 30%（用户，2026-11-06）：每一拍都拉长到 1/0.7 倍。
-        var gaps = beats.Select(beat => beat / .7).ToArray();
+        var gaps = beats.Select(beat => beat / .7 * stretch).ToArray();
         const double HeadLag = .14;
         var times = new double[hits.Length];
         times[0] = gaps[0] / 2;
@@ -161,9 +172,9 @@ internal sealed partial class Body
     // 第二段舞：每一拍头歪向一边、脸跟着转过去一点，同一边的肩膀耸起来靠向头，身子轻轻往那边扭；每拍落下时整个人往下颠一下、
     // 头点一下，拍子就出来了。同一边连着两拍时，第二拍是“再歪一下”：中间先回弹一半再歪回去，比第一拍更俏皮一点。
     // 所有轨迹都是一拍一个关键帧、中间平滑过渡（渲染器用 smoothstep），只有拍点，不停顿，所以是丝滑的。
-    private static Word Groove(double size, double[] beats, double[] hits)
+    private static Word Groove(double size, double[] beats, double[] hits, double stretch = 1)
     {
-        var gaps = beats.Select(beat => beat / .7).ToArray();
+        var gaps = beats.Select(beat => beat / .7 * stretch).ToArray();
         var times = new double[hits.Length];
         times[0] = gaps[0] / 2;
         for (int i = 1; i < hits.Length; i++) times[i] = times[i - 1] + (gaps[i - 1] + gaps[i]) / 2;
@@ -251,6 +262,17 @@ internal sealed partial class Body
     // What she wears this way stays on when one of her reflexes, which also used it, ends.
     internal IReadOnlyCollection<string> Overlays => overlays;
     internal bool HandUp => hand != null;
+    // 现在保持着的动作词（眼睛/眉毛/嘴/头/身子/手各一个）：托盘控制台的开关按钮跟着它亮灭（本机加，2026-11-14，用户要的）
+    private readonly Dictionary<string, string> wordOf = [];
+    internal IEnumerable<string> HeldWords
+    {
+        get
+        {
+            var words = wordOf.Where(pair => channels.ContainsKey(pair.Key)).Select(pair => pair.Value).ToList();
+            if (hand is { } up) words.Add(up == HandToChest ? "抚胸" : up == FingerUp ? "竖手指" : "狗尾草");
+            return words;
+        }
+    }
     internal bool Posing => channels.Count > 0 || overlays.Count > 0 || hand != null;
     // 她这会儿用 set 按住不放的参数（音乐律动收工时不去 clear 这些，否则会把她的神情/姿势一起收掉）。
     internal IReadOnlyDictionary<string, double> Shown => shown;
@@ -300,7 +322,7 @@ internal sealed partial class Body
     }
 
     // Moves that are reflexes keep their own speed whatever she is saying.
-    private static readonly HashSet<string> Reflexes = ["吓一跳", "眨眼", "缩一下"];
+    private static readonly HashSet<string> Reflexes = ["吓一跳", "眨眼", "缩一下", "快眨单眼"];
     private const double Beat = .35, HandBeat = .7, StartleBeat = .45;
 
     // Plays one cue and says how long her words wait before going on. Her moves go with her words (tuned by eye,
@@ -354,7 +376,7 @@ internal sealed partial class Body
                 : name == "吓一跳" ? StartleBeat : word.Hand != null ? HandBeat : Beat);
             if (word.Reset) Relax();
             foreach (var place in word.Clear ?? []) channels.Remove(place);
-            if (word.Channel is { } channel) channels[channel] = word.Hold!;
+            if (word.Channel is { } channel) { channels[channel] = word.Hold!; wordOf[channel] = name; }
             if (word.Overlay is { } overlay)
             {
                 // 眼睛类表情互斥：先关掉另一个，再开这个（用户 2026-11-13）
@@ -372,7 +394,7 @@ internal sealed partial class Body
         if (overlays.Contains("屑屑眼") && channels.TryGetValue("mouth", out var held))
         {
             var cheeks = held.Where(kv => kv.Id == "CheeckPuff").ToArray();
-            if (cheeks.Length == 0) channels.Remove("mouth"); else channels["mouth"] = cheeks;
+            if (cheeks.Length == 0) channels.Remove("mouth"); else { channels["mouth"] = cheeks; wordOf["mouth"] = "鼓腮"; }
         }
         Show();
         return Math.Min(wait, LongestWait);
@@ -475,11 +497,16 @@ internal sealed class Line
     // What she says in one go, a bubble for each line, said one after the other: she thinks the whole of it through and
     // says it at once, not a line, a pause to think, then the next (the owner, 2026-11-03). A line of nothing but 〔〕
     // goes with the words after it (at the end, before it): her body has no bubble of its own.
+    // 兜底（本机加，2026-11-14）：有的模型（DSH 那边的）照着身体说明里的例子，把几句话用“／”或“ / ”连成一行发来；
+    // 全角“／”、前后带空格的“ / ”当作换行切开（“A/B”这种没空格的不动）。在合并“只有〔〕的行”之前切。
+    private static readonly Regex SlashBreak = new(@"\s*／\s*|\s+/\s+", RegexOptions.Compiled);
+    internal static bool HasSlashBreak(string text) => SlashBreak.IsMatch(text);
+
     internal static List<string> Split(string text)
     {
         var lines = new List<string>();
         string pending = "";
-        foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
+        foreach (var raw in SlashBreak.Replace(text, "\n").Replace("\r\n", "\n").Split('\n'))
         {
             var line = raw.Trim();
             if (line.Length == 0) continue;

@@ -132,7 +132,7 @@ internal sealed partial class PetWindow
     // 20 秒彩蛋（本机加，2026-11-11）：单独一条更宽容的计时（停手只退 0.1/秒、速度门槛 25），
     // 和 3/8 秒用的 strokeHeadTime 分开，旧的手感一点不动。melted 满 20 秒后锁存到松手。
     private double strokeDeepTime;
-    private bool melted;
+    private bool melted, melted30; // melted30：本机加（2026-11-13）满 30 秒的升级版彩蛋，同样锁存到松手
     private DateTime lastStrokeGain = DateTime.MinValue;
     private string? strokeFace;
     private int strokeSide; // -1 手靠近头的左侧，1 靠近右侧（都是屏幕上的左右），0 在中间；带一点滞后，别在交界处来回抖
@@ -155,7 +155,7 @@ internal sealed partial class PetWindow
         RaiseAboveAll();
         stroking = true;
         strokeTravel = strokeMoving = strokeMaxTime = strokeHeadTime = 0;
-        strokeDeepTime = 0; melted = false; afterStrokeMelt = false;
+        strokeDeepTime = 0; melted = false; melted30 = false; afterStrokeMelt = false;
         strokeVel = default; strokeFace = null; strokeSide = 0;
         afterStroke = null;
         GetCursorPos(out var p);
@@ -206,7 +206,7 @@ internal sealed partial class PetWindow
         if (melted)
         {
             // 彩蛋：不断档。眯眼笑、前倾、歪头都保留，只让头和眼珠慢慢回正，0.8 秒后进「摸后融化」。
-            afterStroke = ("摸后融化", "抚摸头4");
+            afterStroke = ("摸后融化", melted30 ? "抚摸头5" : "抚摸头4"); // 30 秒以上：动作同 20 秒，只换那句台词（多一个爱心眼）
             afterStrokeMelt = true;
             afterStrokeBond = strokeMoving >= 1.2;
             afterStrokeAt = DateTime.UtcNow.AddSeconds(.8);
@@ -298,6 +298,7 @@ internal sealed partial class PetWindow
         else if (onHead) strokeDeepTime = Math.Max(0, strokeDeepTime - dt * .1);
         else strokeDeepTime = Math.Max(0, strokeDeepTime - dt);
         if (!melted && strokeDeepTime >= 20) melted = true;
+        if (!melted30 && strokeDeepTime >= 30) melted30 = true;
         double melt = melted ? 1 : Math.Clamp((strokeDeepTime - 17) / 3, 0, 1);
         melt = Math.Round(melt * 30) / 30; // 每帧只发有变化的几个值，30 档够平滑
 

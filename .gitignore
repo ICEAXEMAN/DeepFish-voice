@@ -1,4 +1,4 @@
-# 各人自己下载的东西，不随插件分享
+﻿# 各人自己下载的东西，不随插件分享
 sdk/*
 !sdk/下载SDK.md
 model/*
@@ -64,3 +64,8 @@ tray/tray.log
 # 渲染器的编译中间产物（只留 Release 里的成品）
 renderer/build/*
 !renderer/build/Release/
+
+# 第二套语音包、留档和试听（本机）
+voice_calm/
+试听/
+大肥鱼_修复与桌面Logo_20261113/

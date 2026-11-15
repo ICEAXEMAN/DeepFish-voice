@@ -63,7 +63,7 @@ void VerifyIdleSelfTalk()
     live2d = new Behavior(sent.Add, () => [], new Random(7))
     {
         TextIdleMoods = ["甲", "乙"], TextIdle = texts.Add, SkitIdleMoods = ["戏一", "戏二"],
-        // 真实运行时 PetWindow 会在开演前调用 SkitPlayed；测试里也补上，否则 12 分钟优先规则会一直抢。
+        // 真实运行时 PetWindow 会在开演前调用 SkitPlayed，测试里也补上。
         SkitIdle = name => { plays.Add(name); live2d!.SkitPlayed(tickNow); },
         IdleStarted = moves.Add,
     };
@@ -71,9 +71,10 @@ void VerifyIdleSelfTalk()
     for (int i = 1; i <= 400; i++) { tickNow = start.AddSeconds(i * 41); live2d.Tick(tickNow, false, 40); }
     Check(texts.Count > 0 && plays.Count > 0 && moves.Count > 0, "she picks a line, a little play and a move");
     Check(plays.Distinct().Count() == 2 && texts.Distinct().Count() == 2, "every one of them comes up");
-    // 三类平分：各占约三分之一（400 次里允许 8% 的随机偏差）。
+    // 三类比例 35:35:30（小动作、嘀咕、小剧场；用户 2026-11-14 改，400 次里允许 8% 的随机偏差）。
     int all = plays.Count + texts.Count + moves.Count;
-    Check(new[] { plays.Count, texts.Count, moves.Count }.All(n => Math.Abs(n - all / 3.0) < all * 0.08), $"move / line / play split evenly: {moves.Count}/{texts.Count}/{plays.Count}");
+    Check(Math.Abs(moves.Count - all * .35) < all * 0.08 && Math.Abs(texts.Count - all * .35) < all * 0.08 && Math.Abs(plays.Count - all * .30) < all * 0.08,
+        $"move / line / play split 35:35:30: {moves.Count}/{texts.Count}/{plays.Count}");
     // 外面发来的事件（hooks）：events.txt 的格式、冷却、不连着演同一条。
     var book = EventBook.Parse(["// 注释", "# 甲 30 优先", "你好|微笑 点头|4", "|看过来", "乱写|乱七八糟的词|2", "# 乙", "只有话", "# 空的", "|"]);
     Check(book.Count == 2 && book["甲"] is { Cooldown: 30, Priority: true } && book["乙"] is { Cooldown: 0, Priority: false }, "event headers: name, cooldown, priority");
@@ -93,6 +94,14 @@ void VerifyIdleSelfTalk()
     var rnd = new Random(3); string? previous = null; bool repeated = false;
     for (int i = 0; i < 200; i++) { var chosen = eventBook.Choose(yi, rnd).Text; repeated |= chosen == previous; previous = chosen; }
     Check(!repeated, "the same event line is not played twice in a row");
+    // 「轮流」：一轮里每条演一遍不重复，下一轮第一条不和上一轮最后一条相同。
+    var rotating = EventBook.Parse(["# 轮 0 轮流", "一|微笑", "二|微笑", "三|微笑", "四|微笑", "五|微笑"])["轮"];
+    Check(rotating.Rotate, "rotate flag is read from the header");
+    var rotateBook = new EventBook(); var rotateRandom = new Random(11); var played = new List<string>();
+    for (int i = 0; i < 50; i++) played.Add(rotateBook.Choose(rotating, rotateRandom).Text);
+    bool everyRoundFull = Enumerable.Range(0, 10).All(round => played.Skip(round * 5).Take(5).Distinct().Count() == 5);
+    bool noRepeatAcross = Enumerable.Range(1, 49).All(i => played[i] != played[i - 1]);
+    Check(everyRoundFull && noRepeatAcross, "rotating event: every line once per round, never twice in a row");
     Check(!eventBook.TryGet("没有", out _), "an unknown event is not played");
     File.Delete(eventPath);
     // events.txt 本身：每个事件名 hook 脚本都会发来；每句动作都读得懂。
@@ -101,6 +110,14 @@ void VerifyIdleSelfTalk()
         Check(shipped.TryGetValue(name, out var shippedDef) && shippedDef.Lines.Length > 0, "events.txt has event: " + name);
     foreach (var entry in File.ReadAllLines(Path.Combine(root!, "events.txt")).Where(text => text.Contains('|') && !text.TrimStart().StartsWith("//")))
         Check(Body.CueReadable(entry.Split('|', 3)[1].Trim(), 8), "events.txt cue is readable: " + entry);
+    Check(shipped.TryGetValue("思考一分钟", out var loading) && loading.Rotate && loading.Lines.Length == 3 && loading.Lines.All(line => line.Text.Length == 0 && line.Cue != null && line.Cue.Contains("加载")), "events.txt: three loading moves for the first minute, no words, taking turns");
+    var loadFace = new List<string>(); var loadBody = new Body(loadFace.Add); loadBody.Apply("半睁 加载");
+    Check(loadFace.Contains("exp 加载 1") && loadBody.Overlays.Contains("加载"), "the loading icon is a word of her body");
+    loadBody.Relax();
+    Check(loadFace.Contains("exp 加载 0") && !loadBody.Overlays.Contains("加载"), "and it goes away with the rest when she relaxes");
+    Check(shipped["开工"].Rotate && shipped["收到"].Rotate, "events.txt: the start-of-work and got-it lines take turns");
+    Check(shipped.TryGetValue("压缩开始", out var packing) && packing.Lines.Length == 2 && packing.Cooldown == 0 && packing.Lines.All(line => line.Cue != null && line.Cue.Contains("加载")), "events.txt: two compact-start lines, no cooldown, each with the loading icon");
+    Check(shipped.TryGetValue("压缩完成", out var packed) && packed.Lines.Length == 2 && packed.Cooldown == 0 && packed.Lines.All(line => line.Text.Length > 0 && line.Cue != null), "events.txt: two compact-done lines, no cooldown");
     Check(shipped["授权"].Priority && !shipped["出错"].Priority && !shipped["完成"].Priority, "only the event that needs her owner is priority");
 
     // Not while she is speaking.
@@ -218,12 +235,13 @@ void VerifyLive2DBehavior()
     // 摸头摸满 8 秒后松手的“摸后腻歪”也是爱意，同样可以有爱心眼（用户定的，2026-11-10）。
     Check(Behavior.Moods.Where(mood => mood.Key is not ("娇羞" or "摸后腻歪")).All(mood => !mood.Value.Expressions.Contains("爱心眼")), "no heart eyes without love");
     Check(Behavior.Zone("small", .5, .05, worn) == "head" && Behavior.Zone("small", .5, .24, worn) == "face", "small head and face");
+    Check(Behavior.Zone("small", .5, .31, worn) == "face" && Behavior.Zone("small", .5, .33, worn) == "body", "small mouth and chin are the face, the collar is the body");
     Check(Behavior.Zone("small", .5, .5, worn) == "skirt" && Behavior.Zone("small", .85, .75, worn) == "tail", "small skirt and tail");
     Check(Behavior.Zone("small", .22, .58, worn) == "hand" && Behavior.Zone("small", .5, .8, worn) == "body", "small hand and legs");
     Check(Behavior.Zone("chibi", .5, .42, worn) == "face" && Behavior.Zone("chibi", .5, .2, worn) == "head", "chibi head and face");
     Check(Behavior.Zone("full", .5, .2, worn) == "face" && Behavior.Zone("full", .1, .7, worn) == "tail", "full body zones");
     Check(Behavior.Zone("small", .85, .75, ["尾巴开关"]) == "skirt" && Behavior.Zone("full", .1, .7, ["尾巴开关"]) == "skirt", "no tail to touch once it is put away");
-    Check(Behavior.Zone("small", .5, .8, ["裙子切换"]) == "skirt" && Behavior.Zone("small", .5, .3, ["裙子切换"]) == "body", "a long skirt covers her legs, not her chest");
+    Check(Behavior.Zone("small", .5, .8, ["裙子切换"]) == "skirt" && Behavior.Zone("small", .5, .4, ["裙子切换"]) == "body", "a long skirt covers her legs, not her chest");
 
     live2d.Click("head", start);
     Check(live2d.Showing == "摸头" && Said("exp 脸红 1") && Said("set EyeSmile 0.9"), "stroking her head");
@@ -457,6 +475,8 @@ void VerifyLive2DBehavior()
     Check(alone.Done, "and ends with it");
     // What she says at once is a bubble a line, cues alone on a line going with the words after them.
     Check(Line.Split("〔看过来〕\n好呀〔点头〕\r\n\n  明天见  \n〔眯眼笑〕").SequenceEqual(["〔看过来〕好呀〔点头〕", "明天见〔眯眼笑〕"]), "several lines are several bubbles");
+    Check(Line.Split("甲 / 乙／丙").SequenceEqual(["甲", "乙", "丙"]) && Line.Split("A/B 和 C/D").SequenceEqual(["A/B 和 C/D"]), "slashes split the bubbles, only the full-width one or one with spaces");
+    Check(Line.Split("〔微笑〕 / 你好 / 〔点头〕").SequenceEqual(["〔微笑〕你好〔点头〕"]) && Line.HasSlashBreak("甲 / 乙") && !Line.HasSlashBreak("A/B"), "a slash line of only cues still goes with the words next to it");
     Check(Line.Split("好呀").SequenceEqual(["好呀"]) && Line.Split("〔点头〕").SequenceEqual(["〔点头〕"]), "one line, or cues alone, is one");
 
     var restored = 0;
@@ -483,7 +503,9 @@ void VerifyWhatHerBodyTellsHer()
     while (folder != null && !File.Exists(Path.Combine(folder.FullName, "prompt", "身体说明.md"))) folder = folder.Parent;
     Check(folder != null, "the body guide is found");
     var guide = File.ReadAllText(Path.Combine(folder!.FullName, "prompt", "身体说明.md"));
-    Check(Body.GuideVersion(guide) == "2026-11-05-2" && guide.TrimEnd().EndsWith("【你的身体·完】（身体说明 2026-11-05-2 版）"), "the guide ends with its version");
+    Check(Body.GuideVersion(guide) == "2026-11-16-1" && guide.TrimEnd().EndsWith("【你的身体·完】（身体说明 2026-11-16-1 版）"), "the guide ends with its version");
+    Check(guide.Contains("〔〕只写在 say 的 text 里") && guide.Contains("平时还能做的：") && guide.Contains("focus"), "brackets only in say, and the everyday tools");
+    Check(guide.Contains("先调一次 get_state 看 hidden") && guide.Contains("很久没动静"), "checks whether she is out, and reports progress while working");
     Check(guide.Contains("〔〕里只能写下面这些词") && guide.Contains("挑衅") && guide.Contains("- 苦笑：微笑 八字眉"), "only what her body can do, and the small moves in full");
     var examples = guide.Split('\n').Select(line => line.TrimEnd('\r')).Where(line => line.StartsWith("- 【") && line.Contains('→')).ToArray();
     Check(examples.Length == 12, "twelve examples");
@@ -650,15 +672,15 @@ void VerifyBond()
     var root = AppContext.BaseDirectory;
     while (root != null && !File.Exists(Path.Combine(root, "events.txt"))) root = Path.GetDirectoryName(root);
     var book = EventBook.Parse(File.ReadAllLines(Path.Combine(root!, "events.txt")));
-    foreach (var name in new[] { "早安夸奖", "早安", "熬夜念叨", "想你了", "升级", "降级", "番茄开始", "番茄提前结束", "番茄结束", "休息结束", "编译失败", "测试通过", "长任务完成", "该休息" })
+    foreach (var name in new[] { "早安夸奖", "早安", "熬夜念叨", "想你了", "升级", "降级", "番茄开始", "番茄结束1分钟内", "番茄结束5分钟内", "番茄结束10分钟", "番茄结束20分钟", "番茄结束", "休息结束", "编译失败", "测试通过", "长任务完成", "该休息" })
         Check(book.TryGetValue(name, out var def) && def.Lines.Length > 0 && def.Lines.All(line => line.Cue != null), "events.txt has a readable " + name);
     var touches = File.ReadAllLines(Path.Combine(root!, "touch.txt")).Where(line => !line.TrimStart().StartsWith("//") && line.Contains('|')).ToArray();
     Check(touches.Where(line => line.Split('|').Length == 3).All(line => Condition.Parse(line.Split('|')[2], out _) is { MinLevel: > 0 }), "touch.txt levels are read");
     Check(touches.Count(line => line.StartsWith("娇羞|")) >= 4, "the top level has its own skirt lines");
     var skitLines = File.ReadAllLines(Path.Combine(root!, "skits.txt"));
     var loveSkits = skitLines.Select((line, i) => (line, i)).Where(item => item.line.StartsWith('#') && item.line.Contains("@亲密")).ToArray();
-    Check(loveSkits.Length >= 4 && loveSkits.All(item => skitLines[item.i + 1].TrimStart('/').Trim().StartsWith("彩蛋")), "closeness skits are hidden eggs");
-    Check(loveSkits.All(item => Condition.Parse(item.line[(item.line.IndexOf('@') + 1)..], out _) is { MinLevel: >= 3 }), "closeness skits read");
+    Check(loveSkits.Length >= 8 && loveSkits.All(item => skitLines[item.i + 1].TrimStart('/').Trim().StartsWith("彩蛋")), "closeness skits are hidden eggs");
+    Check(loveSkits.All(item => Condition.Parse(item.line[(item.line.IndexOf('@') + 1)..], out _) is { MinLevel: >= 2 }), "closeness skits read");
 }
 
 // 记忆小本本（本机加，2026-11-08）：记、查、删改、取代、整理、上限、存取，还有“不拖效率”的几条硬规矩。

@@ -220,11 +220,12 @@ public partial class App : System.Windows.Application
         finally { ticking = false; }
     }
 
-    private void Quit()
+    private async void Quit()
     {
         poll.Stop();
         if (tray is not null) { tray.Visible = false; tray.Dispose(); tray = null; }
         if (panel is not null) { panel.AllowClose = true; panel.Close(); }
+        await Pet.Call("quit"); // 退出控制台时也让桌宠鞠躬退场（和上游一致；她收不着就作罢）
         Shutdown();
     }
 

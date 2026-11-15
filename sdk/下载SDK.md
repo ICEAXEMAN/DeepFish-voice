@@ -4,7 +4,7 @@
 
 https://www.live2d.com/sdk/download/native/
 
-下载 Windows 用的那个压缩包，解压到这个文件夹（sdk）里，层级不限，例如：
+下载 Cubism SDK for Native 的压缩包（只有一个包，各个平台的东西都在里面），解压到这个文件夹（sdk）里，层级不限，例如：
 
 ```
 sdk\

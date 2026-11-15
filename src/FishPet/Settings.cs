@@ -9,12 +9,12 @@ namespace FishPet;
 // in Control.cs); there is no settings window.
 internal sealed class Settings
 {
-    public string Shape { get; set; } = "full";
+    public string Shape { get; set; } = "small";
     public string[] Outfit { get; set; } = [];
     public int Fps { get; set; } = 60;
-    public double Scale { get; set; } = 1.5;
+    public double Scale { get; set; } = 1;
     // 立绘清晰度：贴图缩放档位（1 = 高清 4096 原图、0.5 = 标准、0.25 = 流畅）。改档位要重启渲染器才生效。
-    public double TexScale { get; set; } = 1;
+    public double TexScale { get; set; } = 0.5;
     // Her speech bubble, words and all, apart from her own size.
     public double BubbleScale { get; set; } = 1;
     // 语音音量 0–1（本机加，2026-11-09）：固定台词的录音按这个音量放；0 就是静音，只出气泡。
@@ -39,7 +39,7 @@ internal sealed class Settings
     // Out of the way while something else fills the screen, drawing nothing meanwhile (as the BigBlueFish pet does).
     public bool HideOnFullscreen { get; set; } = true;
     // Whether she looks on GitHub for a newer plugin when she starts and twice a day (Updates).
-    public bool CheckUpdates { get; set; } = true;
+    public bool CheckUpdates { get; set; } = false;
     public bool FollowMouse { get; set; } = true;
     // 小剧场演出期间暂时关掉视线跟随鼠标（演完自动恢复）；在 settings.json 里改，不进 update_settings。（本机加，2026-11-06）
     public bool SkitPausesFollow { get; set; } = true;
@@ -49,7 +49,7 @@ internal sealed class Settings
     public bool MusicDance { get; set; } = true;
     // 桌面实况（本机加，2026-11-12）：让 DSH 那边的 dafeiyu-context 插件看着前台窗口聊天——
     // 她知道你在用什么软件/网页，场景站稳了还会自己搭话（说话走实时语音）。
-    // 关掉 = 那个插件当没这个功能：不写提示词、不开口。默认开，托盘的“更多设置”里能关。
+    // 关掉 = 那个插件当没这个功能：不写提示词、不开口。默认关，托盘的“更多设置”里能开。
     public bool ContextChat { get; set; } = false;
     // 启动时先收着：桌宠程序在运行，但她不露面，等用户叫她（show / say / coax）才出场。
     public bool StartHidden { get; set; }
@@ -60,10 +60,10 @@ internal sealed class Settings
     // 默认 true：老用户的 settings.json 里没有这一项，读出来还是 true，不会补说。
     public bool Welcomed { get; set; } = true;
     // Seconds between the small things she does by herself when nobody talks to her.
-    public int IdleSeconds { get; set; } = 240;
+    public int IdleSeconds { get; set; } = 300;
     // 到点叫人（本机加，2026-11-08）：按这台电脑的时钟，00:30 起四层哄睡、11:30 午饭提醒。默认关，托盘“更多”里能开。
-    public bool CoaxSleep { get; set; } = true;
-    public bool CoaxLunch { get; set; } = true;
+    public bool CoaxSleep { get; set; } = false;
+    public bool CoaxLunch { get; set; } = false;
     // 用户的生日（MM-dd，比如 10-21）：那天她会说生日快乐、演生日小剧场（mutter.txt、skits.txt 里写着 @生日 的）。空着就没有。
     public string Birthday { get; set; } = "";
     // 待机自言自语：桌宠自己调大模型现编嘀咕。

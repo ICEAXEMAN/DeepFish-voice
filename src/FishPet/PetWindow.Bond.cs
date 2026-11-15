@@ -119,7 +119,7 @@ internal sealed partial class PetWindow
     private static readonly HashSet<string> FocusEvents =
     [
         "授权", "等你", "完成", "长任务完成", "子任务完成", "出错", "编译失败", "测试通过", "该休息",
-        "番茄开始", "番茄提前结束", "番茄结束", "休息结束",
+        "番茄开始", "番茄结束1分钟内", "番茄结束5分钟内", "番茄结束10分钟", "番茄结束20分钟", "番茄结束", "休息结束",
     ];
 
     internal static bool FocusEvent(string name) => FocusEvents.Contains(name);
@@ -148,10 +148,11 @@ internal sealed partial class PetWindow
                 break;
             case "stop":
                 bool working = focus.Now == FocusTimer.Phase.Work;
+                var spent = FocusTimer.Work - focus.Left(now); // 已经专注了多久（用户 2026-11-14：按时长换台词）
                 focus.Stop();
                 behavior.Quiet = false;
                 behavior.Activity("专注", false);
-                if (working && !standby) { YieldMutter(); PlayOwn("番茄提前结束"); }
+                if (working && !standby) { YieldMutter(); PlayOwn(spent < TimeSpan.FromMinutes(1) ? "番茄结束1分钟内" : spent < TimeSpan.FromMinutes(5) ? "番茄结束5分钟内" : spent < TimeSpan.FromMinutes(10) ? "番茄结束10分钟" : "番茄结束20分钟"); }
                 break;
             default:
                 throw new ArgumentException("action 只能是 start（开始专注 25 分钟）或 stop（结束）。");

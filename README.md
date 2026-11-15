@@ -1,4 +1,4 @@
-<h1 align="center">DeepFish：给你的 Agent 一具身体（语音版）</h1>
+﻿<h1 align="center">DeepFish：给你的 Agent 一具身体（语音版）</h1>
 
 <p align="center">让你的 AI 住进桌面上的 Live2D「大肥鱼」：她说话时冒气泡、跟着语气做表情和动作，而且<br>固定台词有日语配音、现编的话也能现场合成。她还会记住你、陪你专注、到点催你吃饭睡觉。</p>
 
@@ -16,10 +16,10 @@
 
 | | 上游 | 这个仓库 |
 |---|---|---|
-| 固定台词 | 只打字 | **两套预录**：青春、活力（472 条）／冷静、沉稳（472 条，称呼「ボス」） |
+| 固定台词 | 只打字 | **两套预录**：青春、活力（506 条）／冷静、沉稳（506 条，称呼「ボス」） |
 | 现编的话（`say`） | 只打字 | 可选：本机 **GPT-SoVITS** 现场合成日语，字幕仍是中文 |
 | 第一次出场的欢迎 | 5 句，无声 | 同样 5 句，**带语音**，按当前语音包选 `welcome.txt` / `welcome_calm.txt` |
-| 托盘图标 / 任务栏 | — | 贴纸领结图标；控制面板和「识别当前窗口并闲聊」在任务栏各占一个按钮 |
+| 托盘图标 / 任务栏 | — | 虎鲸图标（浅到深蓝渐变圆底 + 深蓝虎鲸）；「识别当前窗口并闲聊」在任务栏单独占一个按钮，控制面板可在“更多设置”里选择也显示在任务栏（默认关） |
 
 语音是「中文当字幕、日语当声音」：Agent 写中文，她念日语。预录的两套在托盘控制台 → 语音 →「固定台词语音包」里切换，立刻生效。想在现编的话上也出声，需要本机跑 GPT-SoVITS（见[安装前必读_GPT-SoVITS.txt](安装前必读_GPT-SoVITS.txt)）。
 
@@ -154,6 +154,7 @@
 **上游代码**
 
 - 基于 **WHALEL2D** by **Ssssshaiiko**：[https://github.com/Ssssshaiiko/WHALEL2D](https://github.com/Ssssshaiiko/WHALEL2D)
+- Bilibili视频：BV1zf4A6CEKL
 - 原项目使用与修改已取得作者许可，在此致谢
 - 本仓库的上游：**Rockau / DeepFish-desktop-pet**（[GitHub](https://github.com/Rockau/DeepFish-desktop-pet)）
 
@@ -168,8 +169,9 @@
 
 **本仓库修改**
 
-- Rockau（上游主体）
-- ICEAXEMAN：语音版——固定台词的两套预录、开场欢迎的配音、GPT-SoVITS 实时语音接入
+- Rockau
+- 语音版本：https://github.com/ICEAXEMAN/DeepFish-voice
+  由 ICEAXEMAN 基于本项目改进的分支，给大肥鱼加上了日语语音：固定台词有两套预录配音（青春活力 / 冷静沉稳），现编的话还可以接本机 GPT-SoVITS 实时合成。想让她开口说话的，可以去看看。（注意：该版本不装实时语音，只多占 350MB 硬盘；装了GPT-SoVITS进行实时台词和语音生成会占用较高显存，请根据自己情况使用。该版本还处开发中，功能还没定型。）
 
 ### 模型与 SDK
 
