@@ -47,12 +47,20 @@ internal sealed class Settings
     public string MusicApps { get; set; } = "cloudmusic,qqmusic,qqmusicclient,spotify,applemusic,itunes,music,kugou,kuwo,qishui,musicbee,foobar2000,aimp";
     // 听到电脑在放音乐就跟着跳（本机加，2026-11-10）：在 settings.json 里改成 false 就只放歌不跳舞。
     public bool MusicDance { get; set; } = true;
+    // 随音乐摇摆认哪些声音（合上游 2026-11-17）：音乐软件（上面 MusicApps，默认开）、浏览器网页（BrowserApps，默认关）。
+    // 两个都关就等于 MusicDance 关；托盘里没有总开关了，只有这两个。
+    public bool DanceMusicApps { get; set; } = true;
+    public bool DanceBrowser { get; set; } = false;
+    public string BrowserApps { get; set; } = "chrome,msedge,firefox,brave,opera,vivaldi,arc,iexplore,360se,360chrome,360chromex,qqbrowser,sogouexplorer,2345explorer,liebao,maxthon,ucbrowser,quark,huaweibrowser,whale,thorium,chromium,waterfox,librewolf,zen";
+    // 跳舞白名单：开着的那几类拼起来
+    internal string DanceWhitelist => string.Join(",", new[] { DanceMusicApps ? MusicApps : "", DanceBrowser ? BrowserApps : "" }.Where(s => !string.IsNullOrWhiteSpace(s)));
     // 桌面实况（本机加，2026-11-12）：让 DSH 那边的 dafeiyu-context 插件看着前台窗口聊天——
     // 她知道你在用什么软件/网页，场景站稳了还会自己搭话（说话走实时语音）。
     // 关掉 = 那个插件当没这个功能：不写提示词、不开口。默认关，托盘的“更多设置”里能开。
     public bool ContextChat { get; set; } = false;
     // 启动时先收着：桌宠程序在运行，但她不露面，等用户叫她（show / say / coax）才出场。
-    public bool StartHidden { get; set; }
+    // 托盘里显示成反过来的「跟随 Agent 一起启动」（合上游，2026-11-16）：开关默认关，也就是这里默认 true。
+    public bool StartHidden { get; set; } = true;
     // 拖到屏幕边上会弹回来，脸始终留在工作区里。默认关：能拖出屏幕，只留一小截在外面能拖回来。
     public bool KeepOnScreen { get; set; } = false;
 
@@ -108,6 +116,7 @@ internal sealed class Settings
         TtsUrl = string.IsNullOrWhiteSpace(TtsUrl) ? "http://127.0.0.1:9880" : TtsUrl.Trim();
         TtsDir = (TtsDir ?? "").Trim();
         MusicApps = (MusicApps ?? "").Trim();
+        BrowserApps = (BrowserApps ?? "").Trim();
         BubbleSeconds = StayFor(BubbleSeconds);
         IdleSeconds = Math.Clamp(IdleSeconds, 15, 600);
         Birthday = Condition.NormalBirthday(Birthday) ?? "";

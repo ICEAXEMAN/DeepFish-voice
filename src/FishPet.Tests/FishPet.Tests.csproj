@@ -14,6 +14,7 @@
     <Compile Include="../FishPet/Beat.cs" Link="Beat.cs" />
     <Compile Include="../FishPet/Updates.cs" Link="Updates.cs" />
     <Compile Include="../FishPet/Mutter.cs" Link="Mutter.cs" />
+    <Compile Include="../FishPet/SkitPace.cs" Link="SkitPace.cs" />
     <Compile Include="../FishPet/Model.cs" Link="Model.cs" />
     <Compile Include="../FishPet/Events.cs" Link="Events.cs" />
     <Compile Include="../FishPet/Conditions.cs" Link="Conditions.cs" />

@@ -58,7 +58,7 @@ internal sealed partial class PetWindow
         ears.Watch();
         // 只有白名单里的音乐软件在出声才跳（2026-11-10 用户要的）：别被聊天、视频、系统提示带动
 
-        if (ears.Playing && ears.Rhythmic && ears.AppPlaying(settings.MusicApps, Dancing) && !standby && !exiting) EnsureDanceTimer();
+        if (ears.Playing && ears.Rhythmic && ears.AppPlaying(settings.DanceWhitelist, Dancing) && !standby && !exiting) EnsureDanceTimer();
     }
 
     private void EnsureDanceTimer()
@@ -83,9 +83,12 @@ internal sealed partial class PetWindow
         }
         var now = DateTime.UtcNow;
         var beat = ears.Read();
-        bool allowed = beat.Playing && ears.Rhythmic && ears.AppPlaying(settings.MusicApps, Dancing) && DancingAllowed();
+        bool allowed = beat.Playing && ears.Rhythmic && ears.AppPlaying(settings.DanceWhitelist, Dancing) && DancingAllowed();
         if (!allowed)
         {
+            // 是被她自己这边挡住的（说话、摆姿势、被摸、被拖、被收起）：跳舞时的表情立刻收回，不等下面那 1.5 秒宽限。
+            // 以前表情会顶在脸上，短句（「搞定啦」这种）整句都是眯着眼说的（用户 2026-11-16 发现）。
+            if (Dancing && danceMood >= 0 && DanceBlockedBy() is { } faceWhy) { DropDanceFace(); Places.Log("跳舞时的表情收回了（让位：" + faceWhy + "）"); }
             // 拍子/识别偶尔断一下不算停：忍 1.5 秒，别一帧一帧地跳停（2026-11-10）
             if (Dancing)
             {
@@ -170,6 +173,15 @@ internal sealed partial class PetWindow
         Places.Log(FormattableString.Invariant($"跳舞时的表情：{danceMood + 1} 号，演 {FaceLasts:0} 秒"));
     }
 
+    // 跳舞时的表情立刻收掉（她要开口、要摆姿势的时候用）：回到默认脸，下一次再等约 30 秒。
+    private void DropDanceFace()
+    {
+        body.DanceFace(-1);
+        danceMood = -1;
+        danceFaceShown = 0;
+        danceFaceLeft = WaitBeforeFace();
+    }
+
     // 收工：动作是渲染器的 anim，演完自己回去，这里只清旧的实时参数（兼容上一版）。
     private void ReleaseDance(bool clear)
     {
@@ -213,7 +225,7 @@ internal sealed partial class PetWindow
         var reasons = new List<string>();
         if (!beat.Playing) reasons.Add("没在放（响度停了或采集器没数据）");
         if (!ears.Rhythmic) reasons.Add($"拍子不够密（8 秒内 {ears.BeatCount} 个拍点，要 ≥3）");
-        if (!ears.AppPlaying(settings.MusicApps, true)) reasons.Add("白名单软件电平不够（各应用 " + ears.AppsText + "）");
+        if (!ears.AppPlaying(settings.DanceWhitelist, true)) reasons.Add("白名单软件电平不够（各应用 " + ears.AppsText + "）");
         if (DanceBlockedBy() is { } blocked) reasons.Add("让位：" + blocked);
         return reasons.Count == 0 ? "（掉的那一刻已经恢复了）" : string.Join("；", reasons);
     }

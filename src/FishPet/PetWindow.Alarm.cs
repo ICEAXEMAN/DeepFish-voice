@@ -64,11 +64,20 @@ internal sealed partial class PetWindow
             coaxStage4Text = null;
             RunStage(slot.Stage, EnterFadeMs);
             await Task.Delay(EnterFadeMs + 180); // 等她在正中站稳了再开口
-            var bubbles = text.Split('／', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            foreach (var bubble in bubbles)
-                _ = InTurn(() => { if (!exiting) SayLine(bubble, null); return Task.CompletedTask; }, CancellationToken.None);
+            SpeakAlarmBubbles(text);
         }
         finally { alarmBusy = false; }
+    }
+
+    // 到点台词的气泡一句句说，录音键是去掉〔动作〕的正文（同欢迎词）；演示（coax）也走这里。
+    private void SpeakAlarmBubbles(string text)
+    {
+        var bubbles = text.Split('／', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var bubble in bubbles)
+            _ = InTurn(async () =>
+            {
+                if (!exiting) await SayWithVoiceAsync(bubble, CancellationToken.None); // 等录音真的开始再起字，句尾也不会被下一句切掉
+            }, CancellationToken.None);
     }
 
     private const int EnterFadeMs = 300;

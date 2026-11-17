@@ -410,6 +410,36 @@
             </Setter>
         </Style>
 
+        <!-- 设置卡片里能展开的一行（随音乐摇摆）：左边放内容，右边小箭头，收着朝右、展开朝下（合上游，2026-11-17） -->
+        <Style x:Key="SubFold" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Background="Transparent" Height="38">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            <Path x:Name="Chevron" Data="M0,0 L5,5 L10,0" Stroke="{StaticResource SubBrush}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,16,0" RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform><RotateTransform Angle="-90"/></Path.RenderTransform>
+                            </Path>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chevron" Property="Stroke" Value="{StaticResource TextBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chevron" Property="Stroke" Value="{StaticResource AccentBrush}"/>
+                                <Setter TargetName="Chevron" Property="RenderTransform">
+                                    <Setter.Value><RotateTransform Angle="0"/></Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 可展开收起的大标题行（表情 / 动作 / 小剧场） -->
         <Style x:Key="FoldRow" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>

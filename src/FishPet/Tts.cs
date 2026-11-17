@@ -207,31 +207,33 @@ internal static class Tts
         if (plain.Length == 0 || plain.Length > 120) return null; // 太长的不合成，等太久不如直接打字（120 字上限，2026-11-09）
 
         bool japanese = Japanese(plain);
-        // 字幕是中文，声音仍然是日语：没有假名的中文先翻成日语，再用日语参考合成（2026-11-11 用户定的）。
-        // 有假名就直接按日语念。翻译失败就只打字，不出中文配音。
-        string spoken;
-        if (japanese)
+        string spoken, promptLang, reference, prompt;
         {
-            spoken = await English.ToSpoken(plain, word => Translate(word, "en", token));
+            // 字幕是中文，声音仍然是日语：没有假名的中文先翻成日语，再用日语参考合成（2026-11-11 用户定的）。
+            // 有假名就直接按日语念。翻译失败就只打字，不出中文配音。
+            if (japanese)
+            {
+                spoken = await English.ToSpoken(plain, word => Translate(word, "en", token));
+            }
+            else
+            {
+                var translated = await Translate(plain, "zh-CN", token);
+                if (string.IsNullOrWhiteSpace(translated)) return null;
+                spoken = await English.ToSpoken(translated, word => Translate(word, "en", token));
+            }
+            // 时间「24:00」会被合成器一个字一个字念；先规整成「深夜0時」「12時30分」（2026-11-12）。
+            spoken = FishPet.Japanese.Normalize(spoken);
+            // 实时语音跟着当前语音包走：第一套 voice/ref\语音参考.wav；第二套 voice_calm/ref\语音参考.wav。
+            var useCalm = settings.VoicePack == "calm" && File.Exists(RefCalm);
+            reference = useCalm ? RefCalm : RefJa;
+            prompt = useCalm ? PromptCalm : PromptJa;
+            promptLang = "ja";
         }
-        else
-        {
-            var translated = await Translate(plain, "zh-CN", token);
-            if (string.IsNullOrWhiteSpace(translated)) return null;
-            spoken = await English.ToSpoken(translated, word => Translate(word, "en", token));
-        }
-        // 时间「24:00」会被合成器一个字一个字念；先规整成「深夜0時」「12時30分」（2026-11-12）。
-        spoken = FishPet.Japanese.Normalize(spoken);
-        // 实时语音跟着当前语音包走：第一套 voice/ref\语音参考.wav；第二套 voice_calm/ref\语音参考.wav。
-        var useCalm = settings.VoicePack == "calm" && File.Exists(RefCalm);
-        var reference = useCalm ? RefCalm : RefJa;
-        var prompt = useCalm ? PromptCalm : PromptJa;
         if (lastReference != reference)
         {
             lastReference = reference;
-            Places.Log("实时语音参考：语音参考.wav（" + (useCalm ? "第二套" : "第一套") + "）");
+            Places.Log("实时语音参考：" + (reference == RefCalm ? "第二套" : "第一套"));
         }
-        const string promptLang = "ja";
         if (!File.Exists(reference)) return null;
 
         Directory.CreateDirectory(Cache);

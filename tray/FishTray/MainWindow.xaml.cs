@@ -65,6 +65,7 @@ public partial class MainWindow : Window
         public List<string> Favs { get; set; } = [];
         public bool Pin { get; set; }
         public bool More { get; set; }
+        public bool Dance { get; set; } // “随音乐摇摆”那一行展开着没有（合上游，2026-11-17）
         public bool Taskbar { get; set; } // 在任务栏显示面板（默认关）：开了任务栏上有个按钮，面板有最小化键；点 X 仍是收回小托盘
 
         private static string File_ => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "ui.json"));
@@ -94,6 +95,12 @@ public partial class MainWindow : Window
         Topmost = ui.Pin; PinButton.IsChecked = ui.Pin;
         SwTaskbar.IsChecked = ui.Taskbar; ApplyTaskbar();
         MoreToggle.IsChecked = ui.More; MorePanel.Visibility = ui.More ? Visibility.Visible : Visibility.Collapsed;
+        DanceFold.IsChecked = ui.Dance; DancePanel.Visibility = ui.Dance ? Visibility.Visible : Visibility.Collapsed;
+        DanceFold.Click += (_, _) => { ui.Dance = DanceFold.IsChecked == true; DancePanel.Visibility = ui.Dance ? Visibility.Visible : Visibility.Collapsed; ui.Save(); };
+        // 随音乐摇摆认哪些声音：两个都关就是不跳（桌宠那边总开关 music_dance 跟着它们走）
+        SwDanceApps.Click += (_, _) => { Queue("dance_music_apps", SwDanceApps.IsChecked == true); ShowDanceTags(); };
+        SwDanceBrowser.Click += (_, _) => { Queue("dance_browser", SwDanceBrowser.IsChecked == true); ShowDanceTags(); };
+        ShowDanceTags();
 
         shapeSeg = MakeSeg(ShapeHost, ShapeNames, "shape", i => Queue("shape", ShapeIds[i]));
         fpsSeg = MakeSeg(FpsHost, FpsValues.Select(v => v.ToString()).ToArray(), "fps", i => Queue("fps", FpsValues[i]));
@@ -126,12 +133,14 @@ public partial class MainWindow : Window
         SetupSlider(VolumeSlider, VolumeMarks, VolumeValue, v => $"{Math.Round(v)}%", (0, "0"), (25, "25"), (50, "50"), (75, "75"), (100, "100"));
         SetupSlider(IdleSlider, IdleMarks, IdleValue, v => SecondsText(IdleStops[(int)Math.Round(v)]),
             (0, "15秒"), (Array.IndexOf(IdleStops, 30), "30秒"), (Array.IndexOf(IdleStops, 60), "1分"), (Array.IndexOf(IdleStops, 120), "2分"), (Array.IndexOf(IdleStops, 300), "5分"), (IdleStops.Length - 1, "10分"));
-        Wire(SwMusicDance, "music_dance"); Wire(SwFollow, "follow_mouse"); Wire(SwFull, "hide_on_fullscreen"); Wire(SwStartHidden, "start_hidden"); Wire(SwKeepOn, "keep_on_screen"); Wire(SwCoaxSleep, "coax_sleep"); Wire(SwCoaxLunch, "coax_lunch"); Wire(SwTts, "tts_enabled"); Wire(SwTtsAuto, "tts_autostart");
+        Wire(SwFollow, "follow_mouse"); Wire(SwFull, "hide_on_fullscreen"); Wire(SwKeepOn, "keep_on_screen"); Wire(SwCoaxSleep, "coax_sleep"); Wire(SwCoaxLunch, "coax_lunch"); Wire(SwTts, "tts_enabled"); Wire(SwTtsAuto, "tts_autostart");
         Wire(SwContextChat, "context_chat"); // 桌面实况总开关（本机加，2026-11-12）
         ContextSettingsButton.Click += (_, _) => OpenContextSettings();
         Wire(SwVoice, "voice_enabled");
         SwVoice.Click += (_, _) => ApplyVoiceVisibility();
         ApplyVoiceVisibility();
+        // 「跟随 Agent 一起启动」是 start_hidden 反过来：开 = 不先收着（合上游，2026-11-16）
+        SwStartHidden.Click += (_, _) => { Touch("start_hidden"); Queue("start_hidden", SwStartHidden.IsChecked != true); };
 
         ShowSwitch.Click += async (_, _) => await SetShown(ShowSwitch.IsChecked == true);
         CloseButton.Click += (_, _) => Hide();
@@ -241,7 +250,7 @@ public partial class MainWindow : Window
     // 把面板渲染成一张 PNG（--shot 自检用）。more：展开“更多设置”；open：三块全展开；scroll：滚到最底
     internal void Snapshot(string path, bool more, bool open = false, bool scroll = false, string search = "")
     {
-        if (more) { MoreToggle.IsChecked = true; MorePanel.Visibility = Visibility.Visible; }
+        if (more) { MoreToggle.IsChecked = true; MorePanel.Visibility = Visibility.Visible; DanceFold.IsChecked = true; DancePanel.Visibility = Visibility.Visible; }
         if (open) foreach (var view in sections) { view.Head.IsChecked = true; view.Body.Visibility = Visibility.Visible; }
         if (search.Length > 0) SearchBox.Text = search;
         UpdateLayout();
@@ -843,6 +852,24 @@ public partial class MainWindow : Window
         Apply(state);
     }
 
+    // “随音乐摇摆”右边的小字：和顶上“· 在桌面上”一个样子，开着哪类就写哪类，都关着写“已关闭”（合上游，2026-11-17）
+    private void ShowDanceTags()
+    {
+        DanceTags.Children.Clear();
+        var on = new List<string>();
+        if (SwDanceApps.IsChecked == true) on.Add("音乐软件");
+        if (SwDanceBrowser.IsChecked == true) on.Add("浏览器");
+        bool none = on.Count == 0;
+        if (none) on.Add("已关闭");
+        for (int i = 0; i < on.Count; i++)
+        {
+            var dot = new System.Windows.Shapes.Ellipse { Width = 6, Height = 6, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(i == 0 ? 0 : 10, 1, 6, 0),
+                Fill = new SolidColorBrush(none ? Color.FromRgb(0x5A, 0x6A, 0x99) : Color.FromRgb(0x6F, 0xE0, 0xB0)) };
+            DanceTags.Children.Add(dot);
+            DanceTags.Children.Add(new TextBlock { Text = on[i], Style = (Style)FindResource("Caption"), VerticalAlignment = VerticalAlignment.Center });
+        }
+    }
+
     private void SetStatus(bool? hidden, string text)
     {
         Hidden = hidden is null ? null : hidden;
@@ -873,10 +900,12 @@ public partial class MainWindow : Window
             if (Fresh("volume")) VolumeSlider.Value = Math.Clamp(D("volume", 0.8) * 100, 0, 100);
             if (Fresh("stay")) SetSeg(staySeg, Array.IndexOf(StayValues, (int)D("bubble_seconds")));
             if (Fresh("quality")) SetSeg(qualitySeg, Math.Max(0, Array.IndexOf(QualityValues, D("tex_scale", 1))));
-            if (Fresh("music_dance")) SwMusicDance.IsChecked = B("music_dance");
+            if (Fresh("dance_music_apps")) SwDanceApps.IsChecked = B("music_dance") && B("dance_music_apps");
+            if (Fresh("dance_browser")) SwDanceBrowser.IsChecked = B("music_dance") && B("dance_browser");
+            ShowDanceTags();
             if (Fresh("context_chat")) SwContextChat.IsChecked = s.TryGetProperty("context_chat", out var cc) ? cc.ValueKind != JsonValueKind.False : true;
             if (Fresh("follow_mouse")) SwFollow.IsChecked = B("follow_mouse");            if (Fresh("hide_on_fullscreen")) SwFull.IsChecked = B("hide_on_fullscreen");
-            if (Fresh("start_hidden")) SwStartHidden.IsChecked = B("start_hidden");
+            if (Fresh("start_hidden")) SwStartHidden.IsChecked = !B("start_hidden");
             if (Fresh("keep_on_screen")) SwKeepOn.IsChecked = B("keep_on_screen");
             if (Fresh("coax_sleep")) SwCoaxSleep.IsChecked = B("coax_sleep");
             if (Fresh("coax_lunch")) SwCoaxLunch.IsChecked = B("coax_lunch");

@@ -54,6 +54,13 @@ void VerifyIdleSelfTalk()
         steps++;
     }
     Check(steps >= 20, "skits.txt has a good many steps");
+    // 小剧场的气口（本机加，2026-11-16）：有没有省略号挨着，决定这句说完停多久。
+    Check(Math.Abs(SkitPace.Wait("挖到了！", .53, 2.5, "……是上次在角落没修好的bug") - 2.5) < .001, "a line before 「……」 holds its scripted beat");
+    Check(Math.Abs(SkitPace.Wait("我是来自暗夜的……", 1.55, 3, "我要吸干你的……") - 3) < .001, "a line that trails off holds its scripted beat");
+    Check(Math.Abs(SkitPace.Wait("呼……", .5, 2.5, null) - 2.5) < .001, "the last line that trails off holds too, before she lets go");
+    Check(Math.Abs(SkitPace.Wait("今天要认真学习！", 2.35, 2.5, "……（翻页）") - 2.8) < .001, "a longer recording still wins over the beat");
+    Check(Math.Abs(SkitPace.Wait("真相只有一个！", 1.8, 3, null) - 2.25) < .001, "no ellipsis, no extra air");
+    Check(Math.Abs(SkitPace.Wait("……", null, 2, "是我自己的尾巴啊") - 2) < .001, "a step with no words keeps its seconds");
 
     // Left alone for long enough she picks every kind: a move, a line, a little play.
     var sent = new List<string>(); var texts = new List<string>(); var plays = new List<string>(); var moves = new List<string>();

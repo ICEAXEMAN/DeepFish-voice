@@ -83,6 +83,41 @@ internal sealed class EventBook
 
     internal bool TryGet(string name, out EventDef def) => defs.TryGetValue(name, out def!);
 
+    // ───────── 进度简报的占位符（本机加，2026-11-16）─────────
+    // hook 发来 {"name": "步骤完成", "vars": {"step": "改托盘", "left": "2"}}，台词里的 {step} 这类就换成真实内容。
+    // 换不全（台词里有占位符、hook 没给）的那条不用；一条都换不全就不演。
+    // 值里的〔〕【】和换行去掉，免得步骤名被当成动作或拆成两个气泡；太长的截断。
+    internal static Dictionary<string, string> CleanVars(IEnumerable<KeyValuePair<string, string>> raw)
+    {
+        var clean = new Dictionary<string, string>();
+        foreach (var (key, value) in raw)
+        {
+            if (key.Length is 0 or > 12) continue;
+            var text = new string(value.Where(c => c is not ('〔' or '〕' or '【' or '】' or '{' or '}') && !char.IsControl(c)).ToArray()).Trim();
+            if (text.Length > 24) text = text[..23] + "…";
+            clean[key] = text;
+        }
+        return clean;
+    }
+
+    internal static string? Fill(string text, IReadOnlyDictionary<string, string> vars)
+    {
+        foreach (var (key, value) in vars) text = text.Replace("{" + key + "}", value);
+        return System.Text.RegularExpressions.Regex.IsMatch(text, @"\{[^{}\s]{1,12}\}") ? null : text;
+    }
+
+    // 挑一条换得全的：先照常挑（轮流、不连着重复），换不全就在剩下的里面找第一条换得全的。
+    internal EventLine? ChooseFilled(EventDef def, Random random, IReadOnlyDictionary<string, string> vars)
+    {
+        var first = Choose(def, random);
+        foreach (var line in new[] { first }.Concat(def.Lines.Where(l => l != first)))
+        {
+            var text = Fill(line.Text, vars);
+            if (text != null) return line with { Text = text };
+        }
+        return null;
+    }
+
     // 冷却没到不演。不改任何状态：真的演了才调 Played。
     internal bool Cooling(EventDef def, DateTime now) => lastPlayed.TryGetValue(def.Name, out var at) && (now - at).TotalSeconds < def.Cooldown;
 

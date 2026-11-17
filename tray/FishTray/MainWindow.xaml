@@ -285,10 +285,23 @@
                                         <ToggleButton x:Name="SwContextChat" Style="{StaticResource Switch}"/>
                                     </StackPanel>
                                 </Grid>
-                                <Grid Margin="0,8" ToolTip="电脑在放有拍子的歌时，她会跟着慢慢左右摆；说话、被摸、被拖的时候自动让位">
-                                    <TextBlock Text="听音乐跳舞" VerticalAlignment="Center"/>
-                                    <ToggleButton x:Name="SwMusicDance" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
-                                </Grid>
+                                <!-- 随音乐摇摆：点开选认哪些声音；右边小字写着现在认的是哪几类（合上游，2026-11-17） -->
+                                <ToggleButton x:Name="DanceFold" Style="{StaticResource SubFold}" ToolTip="电脑在放有拍子的歌时，她会跟着慢慢左右摆；说话、被摸、被拖的时候自动让位">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="随音乐摇摆" VerticalAlignment="Center"/>
+                                        <StackPanel x:Name="DanceTags" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,2,0,0"/>
+                                    </StackPanel>
+                                </ToggleButton>
+                                <StackPanel x:Name="DancePanel" Visibility="Collapsed" Margin="14,0,0,4">
+                                    <Grid Margin="0,6">
+                                        <TextBlock Text="识别音乐软件声音" VerticalAlignment="Center" Foreground="{StaticResource SubBrush}"/>
+                                        <ToggleButton x:Name="SwDanceApps" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                    <Grid Margin="0,6">
+                                        <TextBlock Text="识别浏览器网页声音" VerticalAlignment="Center" Foreground="{StaticResource SubBrush}"/>
+                                        <ToggleButton x:Name="SwDanceBrowser" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </StackPanel>
                                 <Grid Margin="0,8">
                                     <TextBlock Text="视线跟着鼠标" VerticalAlignment="Center"/>
                                     <ToggleButton x:Name="SwFollow" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
@@ -298,7 +311,7 @@
                                     <ToggleButton x:Name="SwFull" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
                                 </Grid>
                                 <Grid Margin="0,8">
-                                    <TextBlock Text="启动时先收起" VerticalAlignment="Center"/>
+                                    <TextBlock Text="跟随 Agent 一起启动" VerticalAlignment="Center"/>
                                     <ToggleButton x:Name="SwStartHidden" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>
                                 </Grid>
                                 <Grid Margin="0,8" ToolTip="开着：拖到屏幕边会弹回来。关掉：能拖到屏幕外面（会留一小截，方便拖回来）">

@@ -35,6 +35,11 @@ tray/context-ui.json
 # hook 的本机记录
 hooks/**/hook.log
 hooks/**/sessions.json
+hooks/**/briefing.log
+hooks/**/briefing.json
+hooks/**/state.lock
+hooks/**/__pycache__/
+hooks/**/*.bak-*
 
 # 各人 Agent 在这个文件夹里的配置（里面有本机路径）
 .codex/
